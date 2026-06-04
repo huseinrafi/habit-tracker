@@ -1,0 +1,152 @@
+/* Google Fonts Import */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* Reset and Global Styles */
+* {
+    border-radius: 0px !important; /* Strict sharp rectangular corners */
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Material Icons configuration */
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    user-select: none;
+}
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.light ::-webkit-scrollbar-track {
+    background: #f1f5f9; /* Slate 100 */
+}
+
+.dark ::-webkit-scrollbar-track {
+    background: #0f172a; /* Slate 900 */
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1; /* Slate 300 */
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #334155; /* Slate 700 */
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; /* Slate 400 */
+}
+
+/* Transitions */
+.transition-all-300 {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-height {
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+
+/* Collapsible Sidebar Styles */
+aside {
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
+}
+
+aside.sidebar-collapsed {
+    width: 64px !important;
+}
+
+/* Hide text and elements when collapsed */
+aside.sidebar-collapsed .sidebar-title,
+aside.sidebar-collapsed .sidebar-subtitle,
+aside.sidebar-collapsed nav a span:not(.material-symbols-outlined),
+aside.sidebar-collapsed .sidebar-footer-btn-text {
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: none !important;
+}
+
+/* Adjust sidebar nav elements when collapsed */
+aside.sidebar-collapsed nav a {
+    justify-content: center !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-left-width: 0px !important;
+}
+
+aside.sidebar-collapsed nav a span.material-symbols-outlined {
+    margin: 0 !important;
+    font-size: 1.5rem;
+}
+
+/* Top Header collapsible adjustments */
+header {
+    left: 256px !important;
+    right: 0px !important;
+    width: auto !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease, border-color 0.2s ease !important;
+}
+
+header.header-collapsed {
+    left: 64px !important;
+}
+
+/* Main Content collapsible adjustments */
+main {
+    margin-left: 256px !important;
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease !important;
+}
+
+main.main-collapsed {
+    margin-left: 64px !important;
+}
+
+/* Custom styles for components */
+.habit-day-checkbox {
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Active Task Card Styling */
+.task-card {
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.task-card:hover {
+    border-color: #94a3b8; /* Slate 400 */
+}
+
+.dark .task-card:hover {
+    border-color: #475569; /* Slate 600 */
+}
+
+/* Hour Grid Container */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+}
+
+@media (max-width: 768px) {
+    .calendar-grid {
+        grid-template-columns: 60px repeat(7, 1fr);
+    }
+}
