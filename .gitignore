@@ -1,40 +1,11 @@
-*.log
-*.tmp
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
-
-# IDEs
-.vscode/
-.idea/
-*.iml
-
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-env/
-ENV/
-
-# Node / frontend
+```
+# Dependencies
 node_modules/
-dist/
-build/
-coverage/
-.next/
-.nuxt/
 
-# Environment / secrets
-.env
-.env.*
-!.env.example
+# Database files
+*.db-shm
+*.db-wal
 
-# Misc
-*.sqlite3
-*.db
+# Package lock file
+package-lock.json
+```

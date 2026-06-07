@@ -1,3 +1,6 @@
+// API Configuration
+const API_BASE_URL = 'http://localhost:3000/api';
+
 // State Management
 const APP_STATE = {
     theme: 'light', // 'light' or 'dark'
@@ -6,7 +9,7 @@ const APP_STATE = {
     habits: []
 };
 
-// Default Sample Data (used if LocalStorage is empty)
+// Default Sample Data (used as fallback if API fails)
 const DEFAULT_TASKS = [
     {
         id: 'task-1',
@@ -75,8 +78,118 @@ const DEFAULT_HABITS = [
     }
 ];
 
-// Load State from LocalStorage
-function loadState() {
+// ─── API Functions ─────────────────────────────────────────────────────────────
+
+async function fetchTasks() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/tasks`);
+        if (!response.ok) throw new Error('Failed to fetch tasks');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching tasks:', error);
+        return [...DEFAULT_TASKS];
+    }
+}
+
+async function fetchHabits() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/habits`);
+        if (!response.ok) throw new Error('Failed to fetch habits');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching habits:', error);
+        return [...DEFAULT_HABITS];
+    }
+}
+
+async function createTask(taskData) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(taskData)
+        });
+        if (!response.ok) throw new Error('Failed to create task');
+        return await response.json();
+    } catch (error) {
+        console.error('Error creating task:', error);
+        return null;
+    }
+}
+
+async function updateTask(taskId, updates) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+        if (!response.ok) throw new Error('Failed to update task');
+        return await response.json();
+    } catch (error) {
+        console.error('Error updating task:', error);
+        return null;
+    }
+}
+
+async function deleteTask(taskId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete task');
+        return true;
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        return false;
+    }
+}
+
+async function createHabit(habitData) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/habits`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(habitData)
+        });
+        if (!response.ok) throw new Error('Failed to create habit');
+        return await response.json();
+    } catch (error) {
+        console.error('Error creating habit:', error);
+        return null;
+    }
+}
+
+async function updateHabit(habitId, updates) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/habits/${habitId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+        if (!response.ok) throw new Error('Failed to update habit');
+        return await response.json();
+    } catch (error) {
+        console.error('Error updating habit:', error);
+        return null;
+    }
+}
+
+async function deleteHabit(habitId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/habits/${habitId}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error('Failed to delete habit');
+        return true;
+    } catch (error) {
+        console.error('Error deleting habit:', error);
+        return false;
+    }
+}
+
+// Load State from API
+async function loadState() {
     const savedTheme = localStorage.getItem('tasktracker_theme');
     if (savedTheme) {
         APP_STATE.theme = savedTheme;
@@ -84,31 +197,23 @@ function loadState() {
         APP_STATE.theme = 'dark';
     }
 
-    const savedTasks = localStorage.getItem('tasktracker_tasks');
-    if (savedTasks) {
-        APP_STATE.tasks = JSON.parse(savedTasks);
-    } else {
-        APP_STATE.tasks = [...DEFAULT_TASKS];
-    }
-
-    const savedHabits = localStorage.getItem('tasktracker_habits');
-    if (savedHabits) {
-        APP_STATE.habits = JSON.parse(savedHabits);
-    } else {
-        APP_STATE.habits = [...DEFAULT_HABITS];
-    }
+    // Fetch data from API instead of localStorage
+    APP_STATE.tasks = await fetchTasks();
+    APP_STATE.habits = await fetchHabits();
 
     // Apply Theme
     applyTheme();
 }
 
-// Save State to LocalStorage
-function saveTasks() {
-    localStorage.setItem('tasktracker_tasks', JSON.stringify(APP_STATE.tasks));
+// Save functions now sync with API (kept for compatibility but not used directly)
+async function saveTasks() {
+    // Tasks are saved individually via createTask/updateTask/deleteTask
+    console.log('Tasks synced with backend');
 }
 
-function saveHabits() {
-    localStorage.setItem('tasktracker_habits', JSON.stringify(APP_STATE.habits));
+async function saveHabits() {
+    // Habits are saved individually via createHabit/updateHabit/deleteHabit
+    console.log('Habits synced with backend');
 }
 
 function applyTheme() {
@@ -169,8 +274,8 @@ function initSidebarCollapse() {
 }
 
 // DOM Query Selectors & Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
-    loadState();
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadState();
     initNavigation();
     initModal();
     initSearch();
@@ -454,8 +559,10 @@ function handleTaskSubmit() {
         attachments: [...tempAttachments]
     };
 
-    APP_STATE.tasks.push(newTask);
-    saveTasks();
+    const createdTask = await createTask(newTask);
+    if (createdTask) {
+        APP_STATE.tasks.push(createdTask);
+    }
     toggleModal();
     renderAll();
 }
@@ -504,10 +611,10 @@ function renderStreakJourneyWidget() {
             ${checkboxContent}
         `;
 
-        dayDiv.querySelector('.w-10').addEventListener('click', () => {
+        dayDiv.querySelector('.w-10').addEventListener('click', async () => {
             habit.days[day] = !habit.days[day];
             recalculateHabitStreak(habit);
-            saveHabits();
+            await updateHabit(habit.id, { days: habit.days });
             renderAll();
         });
 
@@ -673,10 +780,10 @@ function renderActiveTasksList() {
         `;
 
         // Register Handlers
-        item.querySelector('.task-checkbox-wrapper').addEventListener('click', (e) => {
+        item.querySelector('.task-checkbox-wrapper').addEventListener('click', async (e) => {
             e.stopPropagation();
             task.completed = !task.completed;
-            saveTasks();
+            await updateTask(task.id, { completed: task.completed });
             renderAll();
         });
 
@@ -746,12 +853,14 @@ function renderActiveTasksList() {
         clickArea.addEventListener('click', performToggle);
 
         // Delete Handler
-        item.querySelector('.task-delete-btn').addEventListener('click', (e) => {
+        item.querySelector('.task-delete-btn').addEventListener('click', async (e) => {
             e.stopPropagation();
             if (confirm(`Delete task "${task.title}"?`)) {
-                APP_STATE.tasks = APP_STATE.tasks.filter(t => t.id !== task.id);
-                saveTasks();
-                renderAll();
+                const deleted = await deleteTask(task.id);
+                if (deleted) {
+                    APP_STATE.tasks = APP_STATE.tasks.filter(t => t.id !== task.id);
+                    renderAll();
+                }
             }
         });
 
@@ -942,21 +1051,23 @@ function renderAnalyticsView() {
 
         // Days check actions
         item.querySelectorAll('[data-day]').forEach(dayEl => {
-            dayEl.addEventListener('click', () => {
+            dayEl.addEventListener('click', async () => {
                 const d = dayEl.getAttribute('data-day');
                 habit.days[d] = !habit.days[d];
                 recalculateHabitStreak(habit);
-                saveHabits();
+                await updateHabit(habit.id, { days: habit.days });
                 renderAll();
             });
         });
 
         // Delete action
-        item.querySelector('.habit-delete-btn').addEventListener('click', () => {
+        item.querySelector('.habit-delete-btn').addEventListener('click', async () => {
             if (confirm(`Delete habit "${habit.name}"?`)) {
-                APP_STATE.habits = APP_STATE.habits.filter(h => h.id !== habit.id);
-                saveHabits();
-                renderAll();
+                const deleted = await deleteHabit(habit.id);
+                if (deleted) {
+                    APP_STATE.habits = APP_STATE.habits.filter(h => h.id !== habit.id);
+                    renderAll();
+                }
             }
         });
 
@@ -967,7 +1078,7 @@ function renderAnalyticsView() {
     const addHabitForm = document.getElementById('add-habit-form');
     if (addHabitForm && !addHabitForm.dataset.listener) {
         addHabitForm.dataset.listener = 'true';
-        addHabitForm.addEventListener('submit', (e) => {
+        addHabitForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('new-habit-input');
             const name = input.value.trim();
@@ -980,8 +1091,10 @@ function renderAnalyticsView() {
                 days: { MON: false, TUE: false, WED: false, THU: false, FRI: false, SAT: false, SUN: false }
             };
 
-            APP_STATE.habits.push(newHabit);
-            saveHabits();
+            const createdHabit = await createHabit({ name });
+            if (createdHabit) {
+                APP_STATE.habits.push(createdHabit);
+            }
             input.value = '';
             renderAll();
         });
