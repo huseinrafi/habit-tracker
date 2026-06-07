@@ -1,0 +1,40 @@
+*.log
+*.tmp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+coverage/
+.next/
+.nuxt/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Misc
+*.sqlite3
+*.db
