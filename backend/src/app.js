@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const serverless = require('serverless-http');
 const { PrismaClient } = require('@prisma/client');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 // ─── Prisma Client (singleton) ──────────────────────────────────────────────
@@ -20,6 +23,33 @@ app.use(express.json({ limit: '5mb' }));
 
 // Make prisma available to route handlers via req.app
 app.set('prisma', prisma);
+
+// Serve static files for uploads
+const uploadDir = path.join(__dirname, '../../public/uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadDir));
+
+// Multer Config
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir)
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, uniqueSuffix + path.extname(file.originalname))
+  }
+});
+const upload = multer({ storage: storage });
+
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  const fileUrl = `http://localhost:3001/uploads/${req.file.filename}`;
+  res.json({ url: fileUrl });
+});
 
 // ─── API Routes ──────────────────────────────────────────────────────────────
 const tasksRouter = require('./routes/tasks');
