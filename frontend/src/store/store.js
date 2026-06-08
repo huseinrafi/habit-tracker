@@ -6,6 +6,9 @@ export const useStore = create((set, get) => ({
   activeTab: 'home',
   sidebarCollapsed: localStorage.getItem('tasktracker_sidebar_collapsed') === 'true',
   
+  user: null,
+  isAuthenticated: !!localStorage.getItem('auth_token'),
+  
   tasks: [],
   habits: [],
   streakData: null,
@@ -22,6 +25,38 @@ export const useStore = create((set, get) => ({
       document.documentElement.classList.remove('dark');
     }
     set({ theme });
+  },
+
+  setUser: (user) => set({ user, isAuthenticated: true }),
+  
+  logout: () => {
+    localStorage.removeItem('auth_token');
+    set({ user: null, isAuthenticated: false, tasks: [], habits: [] });
+  },
+
+  login: async (credentials) => {
+    const data = await ApiClient.login(credentials);
+    localStorage.setItem('auth_token', data.token);
+    set({ user: data.user, isAuthenticated: true });
+    get().fetchAllData();
+  },
+
+  register: async (credentials) => {
+    const data = await ApiClient.register(credentials);
+    localStorage.setItem('auth_token', data.token);
+    set({ user: data.user, isAuthenticated: true });
+    get().fetchAllData();
+  },
+
+  loadUser: async () => {
+    if (get().isAuthenticated) {
+      try {
+        const user = await ApiClient.getMe();
+        set({ user });
+      } catch (err) {
+        get().logout();
+      }
+    }
   },
 
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -43,16 +78,16 @@ export const useStore = create((set, get) => ({
   fetchAllData: async () => {
     try {
       const [tasksRes, habitsRes, streakRes, analyticsRes] = await Promise.all([
-        ApiClient.getTasks(),
-        ApiClient.getHabits(),
+        ApiClient.getTasks().catch(() => []),
+        ApiClient.getHabits().catch(() => []),
         ApiClient.getStreak(),
         ApiClient.getAnalytics()
       ]);
       set({
-        tasks: tasksRes.data || [],
-        habits: habitsRes.data || [],
-        streakData: streakRes.data || null,
-        analyticsData: analyticsRes.data || null,
+        tasks: Array.isArray(tasksRes) ? tasksRes : [],
+        habits: Array.isArray(habitsRes) ? habitsRes : [],
+        streakData: streakRes || null,
+        analyticsData: analyticsRes || null,
       });
     } catch (e) {
       console.error("Failed to fetch initial data", e);

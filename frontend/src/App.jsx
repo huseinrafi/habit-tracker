@@ -6,21 +6,31 @@ import AnalyticsView from './components/AnalyticsView';
 import SettingsView from './components/SettingsView';
 import TaskModal from './components/TaskModal';
 
+import AuthView from './components/AuthView';
+
 // We will inline the views here for simplicity during migration,
 // but they should be separated later.
 
 export default function App() {
   const { 
     theme, setTheme, activeTab, setActiveTab, 
-    sidebarCollapsed, toggleSidebar, apiOnline, checkHealth, fetchAllData 
+    sidebarCollapsed, toggleSidebar, apiOnline, checkHealth, fetchAllData,
+    isAuthenticated, loadUser, user 
   } = useStore();
 
   useEffect(() => {
     // Initialization
     setTheme(theme);
     checkHealth();
-    fetchAllData();
-  }, []);
+    if (isAuthenticated) {
+      loadUser();
+      fetchAllData();
+    }
+  }, [isAuthenticated]);
+
+  if (!isAuthenticated) {
+    return <AuthView />;
+  }
 
   return (
     <div className={`bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-50 min-h-screen transition-colors duration-200 ${sidebarCollapsed ? 'sidebar-collapsed main-collapsed header-collapsed' : ''}`}>
@@ -81,7 +91,7 @@ export default function App() {
 
               <div className="flex items-center gap-3 border-l border-slate-200 dark:border-slate-700 pl-6">
                   <div className="text-right hidden sm:block">
-                      <p className="font-mono text-sm font-bold text-slate-900 dark:text-white">Developer</p>
+                      <p className="font-mono text-sm font-bold text-slate-900 dark:text-white">{user?.name || 'User'}</p>
                   </div>
               </div>
           </div>

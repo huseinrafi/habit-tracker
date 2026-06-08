@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -13,9 +14,11 @@ app.use(express.json({ limit: '5mb' }));  // Allow larger payloads for file atta
 app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 // ─── API Routes ──────────────────────────────────────────────────────────────
+const authRouter = require('./routes/auth');
 const tasksRouter = require('./routes/tasks');
 const habitsRouter = require('./routes/habits');
 
+app.use('/api/auth', authRouter);
 app.use('/api/tasks', tasksRouter);
 app.use('/api/habits', habitsRouter);
 
@@ -36,7 +39,7 @@ app.listen(PORT, () => {
 ║   🚀 Habit Tracker Backend is running!                ║
 ║   📡 API:      http://localhost:${PORT}/api             ║
 ║   🌐 Frontend: http://localhost:${PORT}                 ║
-║   💾 Database: SQLite (./data/habit_tracker.db)       ║
+║   💾 Database: DynamoDB                               ║
 ╚════════════════════════════════════════════════════════╝
   `);
 });

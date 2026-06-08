@@ -1,16 +1,24 @@
-```
 # Dependencies
 node_modules/
 
-# Database files
+# Database files (SQLite legacy)
+*.db
 *.db-shm
 *.db-wal
+backend/data/
+
+# DynamoDB Local
+.dynamodb/
 
 # Package lock file
 package-lock.json
 
+# Planning docs
 implementation_plan.md
 Planning.md
 
+# Environment
 .env
-```
+
+# Uploads
+public/uploads/

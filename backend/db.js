@@ -1,107 +1,127 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const { DynamoDBClient, CreateTableCommand, ListTablesCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+require('dotenv').config();
 
-const DB_PATH = path.join(__dirname, 'data', 'habit_tracker.db');
+const isOffline = process.env.IS_OFFLINE || process.env.NODE_ENV !== 'production';
 
-// Ensure the data directory exists
-const fs = require('fs');
-fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
+const clientParams = {
+  region: process.env.AWS_REGION || 'ap-southeast-1',
+};
 
-const db = new Database(DB_PATH);
-
-// Enable WAL mode for better performance
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-// ─── Schema Creation ─────────────────────────────────────────────────────────
-db.exec(`
-  CREATE TABLE IF NOT EXISTS tasks (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    category TEXT NOT NULL DEFAULT 'OFFICE',
-    priority INTEGER NOT NULL DEFAULT 0,
-    start_date TEXT,
-    start_time TEXT,
-    end_date TEXT,
-    end_time TEXT,
-    completed INTEGER NOT NULL DEFAULT 0,
-    notes TEXT DEFAULT '',
-    created_at TEXT DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS task_attachments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    size TEXT,
-    url TEXT,
-    data_url TEXT,
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS habits (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    streak INTEGER NOT NULL DEFAULT 0,
-    day_mon INTEGER NOT NULL DEFAULT 0,
-    day_tue INTEGER NOT NULL DEFAULT 0,
-    day_wed INTEGER NOT NULL DEFAULT 0,
-    day_thu INTEGER NOT NULL DEFAULT 0,
-    day_fri INTEGER NOT NULL DEFAULT 0,
-    day_sat INTEGER NOT NULL DEFAULT 0,
-    day_sun INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now'))
-  );
-`);
-
-// ─── Seed Default Data (only if tables are empty) ─────────────────────────────
-const taskCount = db.prepare('SELECT COUNT(*) as count FROM tasks').get();
-if (taskCount.count === 0) {
-  const insertTask = db.prepare(`
-    INSERT INTO tasks (id, title, category, priority, start_date, start_time, end_date, end_time, completed, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const insertAttachment = db.prepare(`
-    INSERT INTO task_attachments (task_id, name, size, url) VALUES (?, ?, ?, ?)
-  `);
-
-  const seedTasks = db.transaction(() => {
-    // Task 1
-    insertTask.run('task-1', 'Project Q4 Strategy Document', 'OFFICE', 1, '2023-10-24', '10:00', '2023-10-24', '12:00', 0,
-      'Coordinate with the infrastructure team to finalize the deployment roadmap for the upcoming fiscal quarter. Ensure all security compliance checks are cleared.');
-    insertAttachment.run('task-1', 'Syllabus_v2.pdf', '1.2 MB', null);
-    insertAttachment.run('task-1', 'Google Docs Link', null, 'https://docs.google.com');
-
-    // Task 2
-    insertTask.run('task-2', 'Advanced Algorithms Assignment', 'CAMPUS', 0, '2023-10-27', '14:00', '2023-10-27', '16:30', 0,
-      'Implement the Floyd-Warshall and Bellman-Ford algorithm visualizer. Prepare the performance analysis chart.');
-    insertAttachment.run('task-2', 'Resources_Zip_v1.zip', '45.8 MB', null);
-
-    // Task 3
-    insertTask.run('task-3', 'Weekly Sync Notes', 'OFFICE', 0, '2023-10-23', '09:00', '2023-10-23', '10:00', 1,
-      'Summarized team items for sprint 4. Archiving notes to server.');
-  });
-
-  seedTasks();
-  console.log('✅ Seeded default tasks into database.');
+if (isOffline) {
+  clientParams.endpoint = process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
+  clientParams.credentials = {
+    accessKeyId: 'local',
+    secretAccessKey: 'local'
+  };
 }
 
-const habitCount = db.prepare('SELECT COUNT(*) as count FROM habits').get();
-if (habitCount.count === 0) {
-  const insertHabit = db.prepare(`
-    INSERT INTO habits (id, name, streak, day_mon, day_tue, day_wed, day_thu, day_fri, day_sat, day_sun)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+const client = new DynamoDBClient(clientParams);
+const docClient = DynamoDBDocumentClient.from(client);
 
-  const seedHabits = db.transaction(() => {
-    insertHabit.run('habit-1', 'Coding Routine', 24, 1, 1, 1, 0, 1, 1, 0);
-    insertHabit.run('habit-2', 'Exercise & Cardio', 12, 1, 0, 1, 0, 1, 0, 0);
-    insertHabit.run('habit-3', 'Technical Reading', 8, 1, 1, 0, 0, 0, 1, 0);
-  });
+const USERS_TABLE = process.env.USERS_TABLE || 'HabitTracker_Users';
+const TASKS_TABLE = process.env.TASKS_TABLE || 'HabitTracker_Tasks';
+const HABITS_TABLE = process.env.HABITS_TABLE || 'HabitTracker_Habits';
 
-  seedHabits();
-  console.log('✅ Seeded default habits into database.');
+const tablesConfig = [
+  {
+    TableName: USERS_TABLE,
+    KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+    AttributeDefinitions: [
+      { AttributeName: 'id', AttributeType: 'S' },
+      { AttributeName: 'email', AttributeType: 'S' }
+    ],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: 'EmailIndex',
+        KeySchema: [{ AttributeName: 'email', KeyType: 'HASH' }],
+        Projection: { ProjectionType: 'ALL' },
+        ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 }
+      }
+    ],
+    ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 }
+  },
+  {
+    TableName: TASKS_TABLE,
+    KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+    AttributeDefinitions: [{ AttributeName: 'id', AttributeType: 'S' }],
+    ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 }
+  },
+  {
+    TableName: HABITS_TABLE,
+    KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+    AttributeDefinitions: [{ AttributeName: 'id', AttributeType: 'S' }],
+    ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 }
+  }
+];
+
+async function ensureTablesExist() {
+  try {
+    const listCmd = new ListTablesCommand({});
+    const { TableNames } = await client.send(listCmd);
+    
+    for (const config of tablesConfig) {
+      if (!TableNames.includes(config.TableName)) {
+        console.log(`Creating table ${config.TableName}...`);
+        const createCmd = new CreateTableCommand(config);
+        await client.send(createCmd);
+        console.log(`Table ${config.TableName} created.`);
+      }
+    }
+    
+    // Seed data if empty
+    const tasksScan = new ScanCommand({ TableName: TASKS_TABLE, Limit: 1 });
+    const tasksData = await docClient.send(tasksScan);
+    if (!tasksData.Items || tasksData.Items.length === 0) {
+      console.log('Seeding tasks...');
+      const seedTasks = [
+        {
+          id: 'task-1', title: 'Project Q4 Strategy Document', category: 'OFFICE', priority: 1, 
+          startDate: '2023-10-24', startTime: '10:00', endDate: '2023-10-24', endTime: '12:00', 
+          completed: 0, notes: 'Coordinate with the infrastructure team...', created_at: new Date().toISOString(),
+          attachments: [
+            { name: 'Syllabus_v2.pdf', size: '1.2 MB' },
+            { name: 'Google Docs Link', url: 'https://docs.google.com' }
+          ]
+        },
+        {
+          id: 'task-2', title: 'Advanced Algorithms Assignment', category: 'CAMPUS', priority: 0, 
+          startDate: '2023-10-27', startTime: '14:00', endDate: '2023-10-27', endTime: '16:30', 
+          completed: 0, notes: 'Implement the Floyd-Warshall...', created_at: new Date().toISOString(),
+          attachments: [{ name: 'Resources_Zip_v1.zip', size: '45.8 MB' }]
+        }
+      ];
+      for (const t of seedTasks) {
+        await docClient.send(new PutCommand({ TableName: TASKS_TABLE, Item: t }));
+      }
+      console.log('✅ Seeded default tasks into DynamoDB.');
+    }
+
+    const habitsScan = new ScanCommand({ TableName: HABITS_TABLE, Limit: 1 });
+    const habitsData = await docClient.send(habitsScan);
+    if (!habitsData.Items || habitsData.Items.length === 0) {
+      console.log('Seeding habits...');
+      const seedHabits = [
+        { id: 'habit-1', name: 'Coding Routine', streak: 24, day_mon: 1, day_tue: 1, day_wed: 1, day_thu: 0, day_fri: 1, day_sat: 1, day_sun: 0, created_at: new Date().toISOString() },
+        { id: 'habit-2', name: 'Exercise & Cardio', streak: 12, day_mon: 1, day_tue: 0, day_wed: 1, day_thu: 0, day_fri: 1, day_sat: 0, day_sun: 0, created_at: new Date().toISOString() }
+      ];
+      for (const h of seedHabits) {
+        await docClient.send(new PutCommand({ TableName: HABITS_TABLE, Item: h }));
+      }
+      console.log('✅ Seeded default habits into DynamoDB.');
+    }
+  } catch (err) {
+    console.error('Error ensuring DynamoDB tables exist:', err);
+  }
 }
 
-module.exports = db;
+// Automatically check and create tables on startup
+ensureTablesExist();
+
+module.exports = {
+  client,
+  docClient,
+  USERS_TABLE,
+  TASKS_TABLE,
+  HABITS_TABLE
+};

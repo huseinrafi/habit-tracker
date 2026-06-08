@@ -5,10 +5,13 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "dynamodb": "node start-dynamodb.js"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1063.0",
     "@aws-sdk/client-s3": "^3.1063.0",
+    "@aws-sdk/lib-dynamodb": "^3.1063.0",
     "@aws-sdk/s3-request-presigner": "^3.1063.0",
     "@prisma/client": "^6.19.3",
     "axios": "^1.17.0",
@@ -28,6 +31,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "dynamodb-local": "^0.0.38",
     "nodemon": "^3.1.14",
     "prisma": "^6.19.3",
     "serverless": "^4.37.0",

@@ -1,35 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
-
-// ─── Helper: Format a task row from DB to the frontend JSON shape ────────────
-function formatTask(row) {
-  const attachments = db.prepare('SELECT * FROM task_attachments WHERE task_id = ?').all(row.id);
-  return {
-    id: row.id,
-    title: row.title,
-    category: row.category,
-    priority: row.priority === 1,
-    startDate: row.start_date,
-    startTime: row.start_time,
-    endDate: row.end_date,
-    endTime: row.end_time,
-    completed: row.completed === 1,
-    notes: row.notes || '',
-    attachments: attachments.map(a => ({
-      name: a.name,
-      ...(a.size ? { size: a.size } : {}),
-      ...(a.url ? { url: a.url } : {}),
-      ...(a.data_url ? { dataUrl: a.data_url } : {})
-    }))
-  };
-}
+const { docClient, TASKS_TABLE } = require('../db');
+const { ScanCommand, PutCommand, UpdateCommand, DeleteCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 
 // ─── GET /api/tasks — Retrieve all tasks ─────────────────────────────────────
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM tasks ORDER BY created_at DESC').all();
-    const tasks = rows.map(formatTask);
+    const data = await docClient.send(new ScanCommand({ TableName: TASKS_TABLE }));
+    let tasks = data.Items || [];
+    // Sort by created_at desc
+    tasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    
+    // Map to expected format
+    tasks = tasks.map(t => ({
+      id: t.id,
+      title: t.title,
+      category: t.category,
+      priority: t.priority === 1,
+      startDate: t.startDate,
+      startTime: t.startTime,
+      endDate: t.endDate,
+      endTime: t.endTime,
+      completed: t.completed === 1,
+      notes: t.notes || '',
+      attachments: t.attachments || []
+    }));
     res.json(tasks);
   } catch (err) {
     console.error('GET /api/tasks error:', err);
@@ -38,7 +33,7 @@ router.get('/', (req, res) => {
 });
 
 // ─── POST /api/tasks — Create a new task ─────────────────────────────────────
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { id, title, category, priority, startDate, startTime, endDate, endTime, notes, attachments } = req.body;
 
@@ -47,22 +42,35 @@ router.post('/', (req, res) => {
     }
 
     const taskId = id || 'task-' + Date.now();
+    
+    const newTask = {
+      id: taskId,
+      title,
+      category: category || 'OFFICE',
+      priority: priority ? 1 : 0,
+      startDate: startDate || null,
+      startTime: startTime || null,
+      endDate: endDate || null,
+      endTime: endTime || null,
+      completed: 0,
+      notes: notes || '',
+      attachments: attachments || [],
+      created_at: new Date().toISOString()
+    };
 
-    db.prepare(`
-      INSERT INTO tasks (id, title, category, priority, start_date, start_time, end_date, end_time, completed, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
-    `).run(taskId, title, category || 'OFFICE', priority ? 1 : 0, startDate, startTime, endDate, endTime, notes || '');
+    await docClient.send(new PutCommand({
+      TableName: TASKS_TABLE,
+      Item: newTask
+    }));
 
-    // Insert attachments
-    if (attachments && attachments.length > 0) {
-      const insertAtt = db.prepare('INSERT INTO task_attachments (task_id, name, size, url, data_url) VALUES (?, ?, ?, ?, ?)');
-      for (const att of attachments) {
-        insertAtt.run(taskId, att.name, att.size || null, att.url || null, att.dataUrl || null);
-      }
-    }
+    // Format for response
+    const responseTask = {
+      ...newTask,
+      priority: newTask.priority === 1,
+      completed: newTask.completed === 1,
+    };
 
-    const newTask = formatTask(db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId));
-    res.status(201).json(newTask);
+    res.status(201).json(responseTask);
   } catch (err) {
     console.error('POST /api/tasks error:', err);
     res.status(500).json({ error: 'Failed to create task' });
@@ -70,34 +78,75 @@ router.post('/', (req, res) => {
 });
 
 // ─── PATCH /api/tasks/:id — Update task (toggle completed, etc.) ─────────────
-router.patch('/:id', (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
-    if (!existing) {
+    
+    const existing = await docClient.send(new GetCommand({ TableName: TASKS_TABLE, Key: { id } }));
+    if (!existing.Item) {
       return res.status(404).json({ error: 'Task not found' });
     }
 
     const { completed, title, category, priority, notes } = req.body;
+    
+    let updateExpression = 'SET';
+    const expressionAttributeNames = {};
+    const expressionAttributeValues = {};
 
     if (completed !== undefined) {
-      db.prepare('UPDATE tasks SET completed = ? WHERE id = ?').run(completed ? 1 : 0, id);
+      updateExpression += ' #completed = :completed,';
+      expressionAttributeNames['#completed'] = 'completed';
+      expressionAttributeValues[':completed'] = completed ? 1 : 0;
     }
     if (title !== undefined) {
-      db.prepare('UPDATE tasks SET title = ? WHERE id = ?').run(title, id);
+      updateExpression += ' #title = :title,';
+      expressionAttributeNames['#title'] = 'title';
+      expressionAttributeValues[':title'] = title;
     }
     if (category !== undefined) {
-      db.prepare('UPDATE tasks SET category = ? WHERE id = ?').run(category, id);
+      updateExpression += ' #category = :category,';
+      expressionAttributeNames['#category'] = 'category';
+      expressionAttributeValues[':category'] = category;
     }
     if (priority !== undefined) {
-      db.prepare('UPDATE tasks SET priority = ? WHERE id = ?').run(priority ? 1 : 0, id);
+      updateExpression += ' #priority = :priority,';
+      expressionAttributeNames['#priority'] = 'priority';
+      expressionAttributeValues[':priority'] = priority ? 1 : 0;
     }
     if (notes !== undefined) {
-      db.prepare('UPDATE tasks SET notes = ? WHERE id = ?').run(notes, id);
+      updateExpression += ' #notes = :notes,';
+      expressionAttributeNames['#notes'] = 'notes';
+      expressionAttributeValues[':notes'] = notes;
     }
 
-    const updated = formatTask(db.prepare('SELECT * FROM tasks WHERE id = ?').get(id));
-    res.json(updated);
+    // Remove trailing comma
+    updateExpression = updateExpression.slice(0, -1);
+
+    if (Object.keys(expressionAttributeValues).length === 0) {
+      // Nothing to update
+      const t = existing.Item;
+      return res.json({
+        ...t,
+        priority: t.priority === 1,
+        completed: t.completed === 1
+      });
+    }
+
+    const updatedData = await docClient.send(new UpdateCommand({
+      TableName: TASKS_TABLE,
+      Key: { id },
+      UpdateExpression: updateExpression,
+      ExpressionAttributeNames: expressionAttributeNames,
+      ExpressionAttributeValues: expressionAttributeValues,
+      ReturnValues: 'ALL_NEW'
+    }));
+
+    const t = updatedData.Attributes;
+    res.json({
+      ...t,
+      priority: t.priority === 1,
+      completed: t.completed === 1
+    });
   } catch (err) {
     console.error('PATCH /api/tasks/:id error:', err);
     res.status(500).json({ error: 'Failed to update task' });
@@ -105,16 +154,19 @@ router.patch('/:id', (req, res) => {
 });
 
 // ─── DELETE /api/tasks/:id — Delete a task ───────────────────────────────────
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
-    if (!existing) {
+    
+    const existing = await docClient.send(new GetCommand({ TableName: TASKS_TABLE, Key: { id } }));
+    if (!existing.Item) {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    db.prepare('DELETE FROM task_attachments WHERE task_id = ?').run(id);
-    db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+    await docClient.send(new DeleteCommand({
+      TableName: TASKS_TABLE,
+      Key: { id }
+    }));
 
     res.json({ message: 'Task deleted', id });
   } catch (err) {
