@@ -1,248 +1,69 @@
-// API Configuration
-const API_BASE_URL = 'http://localhost:3000/api';
+// ─── App Initialization ──────────────────────────────────────────────────────
 
-// State Management
-const APP_STATE = {
-    theme: 'light', // 'light' or 'dark'
-    activeTab: 'home', // 'home', 'calendar', 'analytics', 'settings'
-    tasks: [],
-    habits: []
-};
+document.addEventListener('DOMContentLoaded', async () => {
+    initNavigation();
+    initModal();
+    initSearch();
+    initSidebarCollapse();
 
-// Default Sample Data (used as fallback if API fails)
-const DEFAULT_TASKS = [
-    {
-        id: 'task-1',
-        title: 'Project Q4 Strategy Document',
-        category: 'OFFICE',
-        priority: true,
-        startDate: '2023-10-24',
-        startTime: '10:00',
-        endDate: '2023-10-24',
-        endTime: '12:00',
-        completed: false,
-        notes: 'Coordinate with the infrastructure team to finalize the deployment roadmap for the upcoming fiscal quarter. Ensure all security compliance checks are cleared.',
-        attachments: [
-            { name: 'Syllabus_v2.pdf', size: '1.2 MB' },
-            { name: 'Google Docs Link', url: 'https://docs.google.com' }
-        ]
-    },
-    {
-        id: 'task-2',
-        title: 'Advanced Algorithms Assignment',
-        category: 'CAMPUS',
-        priority: false,
-        startDate: '2023-10-27',
-        startTime: '14:00',
-        endDate: '2023-10-27',
-        endTime: '16:30',
-        completed: false,
-        notes: 'Implement the Floyd-Warshall and Bellman-Ford algorithm visualizer. Prepare the performance analysis chart.',
-        attachments: [
-            { name: 'Resources_Zip_v1.zip', size: '45.8 MB' }
-        ]
-    },
-    {
-        id: 'task-3',
-        title: 'Weekly Sync Notes',
-        category: 'OFFICE',
-        priority: false,
-        startDate: '2023-10-23',
-        startTime: '09:00',
-        endDate: '2023-10-23',
-        endTime: '10:00',
-        completed: true,
-        notes: 'Summarized team items for sprint 4. Archiving notes to server.',
-        attachments: []
-    }
-];
+    // Subscribe to Store Changes
+    Store.subscribe('theme', applyTheme);
+    Store.subscribe('tasks', () => {
+        renderActiveTasksList();
+        renderCalendar();
+    });
+    Store.subscribe('habits', renderAnalyticsView);
+    Store.subscribe('streakData', renderStreakJourneyWidget);
+    Store.subscribe('analyticsData', () => {
+        renderStreakJourneyWidget();
+        renderAnalyticsView();
+    });
 
-const DEFAULT_HABITS = [
-    {
-        id: 'habit-1',
-        name: 'Coding Routine',
-        streak: 24,
-        days: { MON: true, TUE: true, WED: true, THU: false, FRI: true, SAT: true, SUN: false }
-    },
-    {
-        id: 'habit-2',
-        name: 'Exercise & Cardio',
-        streak: 12,
-        days: { MON: true, TUE: false, WED: true, THU: false, FRI: true, SAT: false, SUN: false }
-    },
-    {
-        id: 'habit-3',
-        name: 'Technical Reading',
-        streak: 8,
-        days: { MON: true, TUE: true, WED: false, THU: false, FRI: false, SAT: true, SUN: false }
-    }
-];
-
-// ─── API Functions ─────────────────────────────────────────────────────────────
-
-async function fetchTasks() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/tasks`);
-        if (!response.ok) throw new Error('Failed to fetch tasks');
-        return await response.json();
-    } catch (error) {
-        console.error('Error fetching tasks:', error);
-        return [...DEFAULT_TASKS];
-    }
-}
-
-async function fetchHabits() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/habits`);
-        if (!response.ok) throw new Error('Failed to fetch habits');
-        return await response.json();
-    } catch (error) {
-        console.error('Error fetching habits:', error);
-        return [...DEFAULT_HABITS];
-    }
-}
-
-async function createTask(taskData) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/tasks`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(taskData)
-        });
-        if (!response.ok) throw new Error('Failed to create task');
-        return await response.json();
-    } catch (error) {
-        console.error('Error creating task:', error);
-        return null;
-    }
-}
-
-async function updateTask(taskId, updates) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates)
-        });
-        if (!response.ok) throw new Error('Failed to update task');
-        return await response.json();
-    } catch (error) {
-        console.error('Error updating task:', error);
-        return null;
-    }
-}
-
-async function deleteTask(taskId) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
-            method: 'DELETE'
-        });
-        if (!response.ok) throw new Error('Failed to delete task');
-        return true;
-    } catch (error) {
-        console.error('Error deleting task:', error);
-        return false;
-    }
-}
-
-async function createHabit(habitData) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/habits`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(habitData)
-        });
-        if (!response.ok) throw new Error('Failed to create habit');
-        return await response.json();
-    } catch (error) {
-        console.error('Error creating habit:', error);
-        return null;
-    }
-}
-
-async function updateHabit(habitId, updates) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/habits/${habitId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates)
-        });
-        if (!response.ok) throw new Error('Failed to update habit');
-        return await response.json();
-    } catch (error) {
-        console.error('Error updating habit:', error);
-        return null;
-    }
-}
-
-async function deleteHabit(habitId) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/habits/${habitId}`, {
-            method: 'DELETE'
-        });
-        if (!response.ok) throw new Error('Failed to delete habit');
-        return true;
-    } catch (error) {
-        console.error('Error deleting habit:', error);
-        return false;
-    }
-}
-
-// Load State from API
-async function loadState() {
+    // Initial Theme Load
     const savedTheme = localStorage.getItem('tasktracker_theme');
     if (savedTheme) {
-        APP_STATE.theme = savedTheme;
+        Store.setTheme(savedTheme);
     } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        APP_STATE.theme = 'dark';
+        Store.setTheme('dark');
     }
 
-    // Fetch data from API instead of localStorage
-    APP_STATE.tasks = await fetchTasks();
-    APP_STATE.habits = await fetchHabits();
+    // Dummy Auth Token setup (For development/testing purposes without Login UI)
+    if (!ApiClient.isAuthenticated()) {
+        // We need a valid JWT token to interact with the backend. 
+        // In a real app, the user would login. Here we warn the console.
+        console.warn("No auth token found! API requests will fail with 401 unless you login.");
+    }
 
-    // Apply Theme
-    applyTheme();
-}
+    // Fetch Initial Data
+    await Store.fetchAllData();
+});
 
-// Save functions now sync with API (kept for compatibility but not used directly)
-async function saveTasks() {
-    // Tasks are saved individually via createTask/updateTask/deleteTask
-    console.log('Tasks synced with backend');
-}
-
-async function saveHabits() {
-    // Habits are saved individually via createHabit/updateHabit/deleteHabit
-    console.log('Habits synced with backend');
-}
-
-function applyTheme() {
-    if (APP_STATE.theme === 'dark') {
+// ─── Theme & Layout ──────────────────────────────────────────────────────────
+function applyTheme(theme) {
+    if (theme === 'dark') {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
     } else {
         document.documentElement.classList.add('light');
         document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('tasktracker_theme', APP_STATE.theme);
-    updateThemeToggleIcons();
+    localStorage.setItem('tasktracker_theme', theme);
+    updateThemeToggleIcons(theme);
 }
 
 function toggleTheme() {
-    APP_STATE.theme = APP_STATE.theme === 'light' ? 'dark' : 'light';
-    applyTheme();
+    const current = Store.getState().theme;
+    Store.setTheme(current === 'light' ? 'dark' : 'light');
 }
 
-// Render Header Theme Button & Notifications
-function updateThemeToggleIcons() {
+function updateThemeToggleIcons(theme) {
     const themeBtn = document.getElementById('theme-toggle-btn');
     if (themeBtn) {
         const iconSpan = themeBtn.querySelector('.material-symbols-outlined');
         if (iconSpan) {
-            iconSpan.textContent = APP_STATE.theme === 'dark' ? 'light_mode' : 'dark_mode';
+            iconSpan.textContent = theme === 'dark' ? 'light_mode' : 'dark_mode';
         }
     }
-    // Note: We removed the class name overwrite here to prevent resetting structural layout styles (width/left margins)
 }
 
 // Sidebar collapse logic
@@ -254,7 +75,6 @@ function initSidebarCollapse() {
     
     if (!toggleBtn || !sidebar || !header || !main) return;
 
-    // Load collapsed state from local storage
     const isCollapsed = localStorage.getItem('tasktracker_sidebar_collapsed') === 'true';
     if (isCollapsed) {
         sidebar.classList.add('sidebar-collapsed');
@@ -273,17 +93,7 @@ function initSidebarCollapse() {
     });
 }
 
-// DOM Query Selectors & Event Listeners
-document.addEventListener('DOMContentLoaded', async () => {
-    await loadState();
-    initNavigation();
-    initModal();
-    initSearch();
-    initSidebarCollapse();
-    renderAll();
-});
-
-// Navigation Setup
+// ─── Navigation ──────────────────────────────────────────────────────────────
 function initNavigation() {
     const navLinks = document.querySelectorAll('aside nav a');
     navLinks.forEach(link => {
@@ -296,7 +106,6 @@ function initNavigation() {
         });
     });
 
-    // Logo click goes home
     const logo = document.querySelector('aside h1');
     if (logo) {
         logo.addEventListener('click', () => switchTab('home'));
@@ -305,9 +114,8 @@ function initNavigation() {
 }
 
 function switchTab(tabName) {
-    APP_STATE.activeTab = tabName;
+    Store.setActiveTab(tabName);
     
-    // Update active nav styles
     const navLinks = document.querySelectorAll('aside nav a');
     navLinks.forEach(link => {
         const linkTab = link.getAttribute('data-tab');
@@ -323,7 +131,6 @@ function switchTab(tabName) {
         }
     });
 
-    // Toggle View Sections
     const views = ['home-view', 'calendar-view', 'analytics-view', 'settings-view'];
     views.forEach(viewId => {
         const viewEl = document.getElementById(viewId);
@@ -336,24 +143,33 @@ function switchTab(tabName) {
         }
     });
 
-    // Specific renders
-    if (tabName === 'calendar') {
-        renderCalendar();
-    } else if (tabName === 'analytics') {
-        renderAnalyticsView();
-    } else if (tabName === 'home') {
-        renderDashboard();
+    if (tabName === 'calendar') renderCalendar();
+    else if (tabName === 'analytics') renderAnalyticsView();
+    else if (tabName === 'home') {
+        renderStreakJourneyWidget();
+        renderActiveTasksList();
     }
 }
 
-// Modal Form Operations
+// ─── Search ──────────────────────────────────────────────────────────────────
+let taskSearchQuery = '';
+function initSearch() {
+    const searchInput = document.getElementById('task-search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            taskSearchQuery = e.target.value.toLowerCase().trim();
+            renderActiveTasksList();
+        });
+    }
+}
+
+// ─── Modal Form Operations ───────────────────────────────────────────────────
 let activeCategory = 'OFFICE';
 let tempAttachments = [];
 
 function initModal() {
     const modal = document.getElementById('taskModal');
     
-    // Close button
     const closeBtn = modal.querySelector('button[onclick="toggleModal()"]');
     if (closeBtn) {
         closeBtn.removeAttribute('onclick');
@@ -361,16 +177,11 @@ function initModal() {
     }
 
     const cancelBtn = document.getElementById('modal-cancel-btn');
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', toggleModal);
-    }
+    if (cancelBtn) cancelBtn.addEventListener('click', toggleModal);
 
     const saveBtn = document.getElementById('modal-submit-btn');
-    if (saveBtn) {
-        saveBtn.addEventListener('click', handleTaskSubmit);
-    }
+    if (saveBtn) saveBtn.addEventListener('click', handleTaskSubmit);
 
-    // Attach Category Button Triggers
     const catBtns = document.querySelectorAll('.category-btn');
     catBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -379,7 +190,8 @@ function initModal() {
                 b.classList.remove('bg-slate-800', 'text-white', 'dark:bg-slate-200', 'dark:text-slate-900');
                 b.classList.add('hover:bg-slate-100', 'dark:hover:bg-slate-800');
             });
-            if (APP_STATE.theme === 'dark') {
+            const theme = Store.getState().theme;
+            if (theme === 'dark') {
                 btn.classList.add('bg-slate-200', 'text-slate-900');
             } else {
                 btn.classList.add('bg-slate-800', 'text-white');
@@ -388,35 +200,28 @@ function initModal() {
         });
     });
 
-    // Real File Upload Handler
     const fileUploader = document.getElementById('file-uploader');
     if (fileUploader) {
         fileUploader.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            // Safe limit for localStorage: 1.5MB
-            if (file.size > 1.5 * 1024 * 1024) {
-                alert(`File "${file.name}" is too large! Maximum allowed size is 1.5MB for browser local storage.`);
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`File "${file.name}" is too large! Maximum allowed size is 5MB.`);
                 fileUploader.value = '';
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                tempAttachments.push({
-                    name: file.name,
-                    size: (file.size / 1024).toFixed(1) + " KB",
-                    dataUrl: evt.target.result // Base64 content
-                });
-                renderModalAttachments();
-                fileUploader.value = ''; // Reset input
-            };
-            reader.readAsDataURL(file);
+            tempAttachments = [{
+                name: file.name,
+                size: (file.size / 1024).toFixed(1) + " KB",
+                file: file
+            }]; // Limit to 1 for this implementation
+            renderModalAttachments();
+            fileUploader.value = '';
         });
     }
 
-    // Web Link Adder Button Handler
     const addLinkBtn = document.getElementById('add-link-btn');
     if (addLinkBtn) {
         addLinkBtn.addEventListener('click', () => {
@@ -430,17 +235,15 @@ function initModal() {
                 return;
             }
 
-            // Simple validation prepending http if not there
             let formattedUrl = url;
             if (!/^https?:\/\//i.test(url)) {
                 formattedUrl = 'https://' + url;
             }
 
-            tempAttachments.push({
+            tempAttachments = [{
                 name: label,
                 url: formattedUrl
-            });
-
+            }];
             renderModalAttachments();
             urlInput.value = '';
             labelInput.value = '';
@@ -453,28 +256,22 @@ function toggleModal(prefillDate = '', prefillTime = '') {
     const panel = modal.querySelector('.modal-panel');
     
     if (modal.classList.contains('pointer-events-none')) {
-        // Reset form inputs
         document.getElementById('task-form-title').value = '';
         
-        // Start & End Timestamps Setup
         const defaultDate = prefillDate || new Date().toISOString().split('T')[0];
         document.getElementById('task-form-start-date').value = defaultDate;
         document.getElementById('task-form-start-time').value = prefillTime || '09:00';
-        
         document.getElementById('task-form-end-date').value = defaultDate;
         
-        // Default end time to 1 hour after start
         let endHr = 10;
         if (prefillTime) {
             const parts = prefillTime.split(':');
             endHr = Math.min(23, parseInt(parts[0]) + 1);
         }
         document.getElementById('task-form-end-time').value = String(endHr).padStart(2, '0') + ':00';
-
         document.getElementById('task-form-notes').value = '';
         document.getElementById('task-form-priority').checked = false;
         
-        // Reset link form text
         const urlInput = document.getElementById('link-url-input');
         const labelInput = document.getElementById('link-label-input');
         if (urlInput) urlInput.value = '';
@@ -483,7 +280,6 @@ function toggleModal(prefillDate = '', prefillTime = '') {
         tempAttachments = [];
         renderModalAttachments();
         
-        // Select category
         const officeBtn = document.querySelector('.category-btn[data-type="office"]');
         if (officeBtn) officeBtn.click();
 
@@ -503,14 +299,14 @@ function renderModalAttachments() {
         const item = document.createElement('div');
         item.className = "bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 flex items-center gap-2";
         
-        const typeBadge = att.dataUrl ? 'FILE' : 'LINK';
-        const displayLabel = att.dataUrl ? `${att.name.toUpperCase()} (${att.size})` : `${att.name.toUpperCase()} (LINK)`;
+        const typeBadge = att.file ? 'FILE' : 'LINK';
+        const displayLabel = att.file ? \`\${att.name.toUpperCase()} (\${att.size})\` : \`\${att.name.toUpperCase()} (LINK)\`;
 
-        item.innerHTML = `
-            <span class="font-label-sm text-[9px] text-slate-500 font-bold bg-slate-200 dark:bg-slate-700 px-1">${typeBadge}</span>
-            <span class="font-label-sm text-[10px] text-slate-600 dark:text-slate-300 truncate max-w-[200px]">${displayLabel}</span>
-            <button class="hover:text-error transition-colors" data-idx="${idx}"><span class="material-symbols-outlined text-xs">close</span></button>
-        `;
+        item.innerHTML = \`
+            <span class="font-label-sm text-[9px] text-slate-500 font-bold bg-slate-200 dark:bg-slate-700 px-1">\${typeBadge}</span>
+            <span class="font-label-sm text-[10px] text-slate-600 dark:text-slate-300 truncate max-w-[200px]">\${displayLabel}</span>
+            <button class="hover:text-error transition-colors" data-idx="\${idx}"><span class="material-symbols-outlined text-xs">close</span></button>
+        \`;
         item.querySelector('button').addEventListener('click', () => {
             tempAttachments.splice(idx, 1);
             renderModalAttachments();
@@ -519,348 +315,203 @@ function renderModalAttachments() {
     });
 }
 
-function handleTaskSubmit() {
+async function handleTaskSubmit() {
     const title = document.getElementById('task-form-title').value.trim();
     const startDate = document.getElementById('task-form-start-date').value;
     const startTime = document.getElementById('task-form-start-time').value;
     const endDate = document.getElementById('task-form-end-date').value;
     const endTime = document.getElementById('task-form-end-time').value;
     const notes = document.getElementById('task-form-notes').value.trim();
-    const priority = document.getElementById('task-form-priority').checked;
 
-    if (!title) {
-        alert("Please enter a title for the task!");
-        return;
-    }
-    if (!startDate || !startTime || !endDate || !endTime) {
-        alert("Please complete the starting and ending times!");
+    if (!title || !startDate || !startTime || !endDate || !endTime) {
+        alert("Please complete all required fields!");
         return;
     }
 
-    // Verify start date/time is before or equal to end date/time
-    const startObj = new Date(`${startDate}T${startTime}`);
-    const endObj = new Date(`${endDate}T${endTime}`);
+    const startObj = new Date(\`\${startDate}T\${startTime}\`);
+    const endObj = new Date(\`\${endDate}T\${endTime}\`);
     if (startObj > endObj) {
-        alert("Warning: Start time occurs after End/Deadline time. Please double check dates!");
+        alert("Warning: Start time occurs after End/Deadline time.");
         return;
     }
 
-    const newTask = {
-        id: 'task-' + Date.now(),
-        title,
-        category: activeCategory,
-        priority,
-        startDate,
-        startTime,
-        endDate,
-        endTime,
-        completed: false,
-        notes: notes || 'No description provided.',
-        attachments: [...tempAttachments]
-    };
+    let attachmentUrl = null;
+    const submitBtn = document.getElementById('modal-submit-btn');
+    submitBtn.textContent = 'Creating...';
+    submitBtn.disabled = true;
 
-    const createdTask = await createTask(newTask);
-    if (createdTask) {
-        APP_STATE.tasks.push(createdTask);
+    try {
+        if (tempAttachments.length > 0) {
+            const att = tempAttachments[0];
+            if (att.file) {
+                attachmentUrl = await Store.uploadAttachment(att.file);
+            } else if (att.url) {
+                attachmentUrl = att.url;
+            }
+        }
+
+        const newTask = {
+            title,
+            startDate: startObj.toISOString(),
+            endDate: endObj.toISOString(),
+            type: activeCategory,
+            repeatableType: 'disable',
+            attachmentUrl
+        };
+
+        await Store.createTask(newTask);
+        toggleModal();
+    } catch (err) {
+        console.error(err);
+        alert("Failed to create task: " + err.message);
+    } finally {
+        submitBtn.textContent = 'Create Task';
+        submitBtn.disabled = false;
     }
-    toggleModal();
-    renderAll();
 }
 
-// Render Functions
-function renderAll() {
-    renderDashboard();
-    renderCalendar();
-    renderAnalyticsView();
-}
-
-// 1. Dashboard View
-function renderDashboard() {
-    renderStreakJourneyWidget();
-    renderActiveTasksList();
-}
+// ─── Dashboard Renderers ─────────────────────────────────────────────────────
 
 function renderStreakJourneyWidget() {
-    const habit = APP_STATE.habits[0] || { days: {} };
-    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const { streakData, analyticsData } = Store.getState();
     const container = document.getElementById('dashboard-weekly-view');
     if (!container) return;
 
     container.innerHTML = '';
-    days.forEach(day => {
-        const completed = habit.days[day];
-        const dayDiv = document.createElement('div');
-        dayDiv.className = "flex flex-col items-center gap-2 flex-1";
+    
+    if (streakData && streakData.habits && streakData.habits.length > 0) {
+        streakData.habits.forEach(habit => {
+            const div = document.createElement('div');
+            div.className = "flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 mb-2";
+            
+            div.innerHTML = \`
+                <span class="font-headline text-sm font-bold text-slate-900 dark:text-white">\${habit.title}</span>
+                <div class="flex items-center gap-4">
+                    <span class="font-mono text-xs text-primary dark:text-sky-blue-dark font-bold">\${habit.currentStreak} Streak</span>
+                    <button class="check-habit-btn p-1 bg-primary text-white hover:brightness-110 active:scale-95 transition-all" data-id="\${habit.habitId}">
+                        <span class="material-symbols-outlined text-sm block">check</span>
+                    </button>
+                </div>
+            \`;
+            
+            div.querySelector('.check-habit-btn').addEventListener('click', async () => {
+                await Store.checkHabit(habit.habitId);
+            });
+            
+            container.appendChild(div);
+        });
         
-        let checkboxContent = '';
-        if (completed) {
-            checkboxContent = `
-                <div class="w-10 h-10 bg-primary dark:bg-sky-blue-dark border border-primary dark:border-sky-blue-dark flex items-center justify-center text-white cursor-pointer active:scale-95 transition-transform">
-                    <span class="material-symbols-outlined text-sm font-bold">check</span>
-                </div>
-            `;
-        } else {
-            checkboxContent = `
-                <div class="w-10 h-10 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center text-slate-300 cursor-pointer active:scale-95 transition-transform hover:border-primary dark:hover:border-sky-blue-dark">
-                </div>
-            `;
+        const activeDaysVal = document.getElementById('dashboard-active-days');
+        if (activeDaysVal) {
+            activeDaysVal.textContent = streakData.summary.maxStreak;
         }
-
-        dayDiv.innerHTML = `
-            <span class="font-label-sm text-xs text-slate-400 dark:text-slate-500">${day}</span>
-            ${checkboxContent}
-        `;
-
-        dayDiv.querySelector('.w-10').addEventListener('click', async () => {
-            habit.days[day] = !habit.days[day];
-            recalculateHabitStreak(habit);
-            await updateHabit(habit.id, { days: habit.days });
-            renderAll();
-        });
-
-        container.appendChild(dayDiv);
-    });
-
-    // Update Percentage Score
-    let totalDays = 0;
-    let completedDays = 0;
-    APP_STATE.habits.forEach(h => {
-        days.forEach(d => {
-            totalDays++;
-            if (h.days[d]) completedDays++;
-        });
-    });
-
-    const percentScore = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
-    const scoreVal = document.getElementById('dashboard-completion-percentage');
-    if (scoreVal) scoreVal.textContent = `${percentScore}% COMPLETE`;
-
-    const efficiencyVal = document.getElementById('dashboard-efficiency-val');
-    if (efficiencyVal) {
-        const efficiency = Math.min(100, Math.round(50 + (percentScore / 2)));
-        efficiencyVal.innerHTML = `${efficiency}<span class="text-headline-md opacity-50 ml-1">%</span>`;
+    } else {
+        container.innerHTML = '<p class="text-xs text-slate-500 font-mono">No daily habits found.</p>';
     }
+    
+    if (analyticsData) {
+        const percentScore = analyticsData.habits.thisWeek.percentage || 0;
+        const scoreVal = document.getElementById('dashboard-completion-percentage');
+        if (scoreVal) scoreVal.textContent = \`\${percentScore}% COMPLETE\`;
 
-    const activeDaysVal = document.getElementById('dashboard-active-days');
-    if (activeDaysVal) {
-        const maxStreak = APP_STATE.habits.length > 0 ? Math.max(...APP_STATE.habits.map(h => h.streak)) : 0;
-        activeDaysVal.textContent = maxStreak;
-    }
-}
-
-function recalculateHabitStreak(habit) {
-    let streakCount = 0;
-    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    days.forEach(d => {
-        if (habit.days[d]) streakCount++;
-    });
-    habit.streak = streakCount * 3 + 2;
-}
-
-// Active Tasks search
-let taskSearchQuery = '';
-
-function initSearch() {
-    const searchInput = document.getElementById('task-search-input');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            taskSearchQuery = e.target.value.toLowerCase().trim();
-            renderActiveTasksList();
-        });
+        const efficiencyVal = document.getElementById('dashboard-efficiency-val');
+        if (efficiencyVal) {
+            efficiencyVal.innerHTML = \`\${percentScore}<span class="text-xl opacity-50 ml-1">%</span>\`;
+        }
     }
 }
 
 function renderActiveTasksList() {
+    const { tasks } = Store.getState();
     const list = document.getElementById('dashboard-active-tasks-list');
     if (!list) return;
 
     list.innerHTML = '';
     
-    const filteredTasks = APP_STATE.tasks.filter(t => t.title.toLowerCase().includes(taskSearchQuery));
+    const filteredTasks = tasks.filter(t => t.title.toLowerCase().includes(taskSearchQuery));
     
     filteredTasks.sort((a, b) => {
-        if (a.completed !== b.completed) return a.completed ? 1 : -1;
-        if (a.priority !== b.priority) return a.priority ? -1 : 1;
-        const aDate = a.startDate || a.dueDate || '';
-        const bDate = b.startDate || b.dueDate || '';
-        return aDate.localeCompare(bDate);
+        const aComp = !!a.completedAt;
+        const bComp = !!b.completedAt;
+        if (aComp !== bComp) return aComp ? 1 : -1;
+        return new Date(a.startDate) - new Date(b.startDate);
     });
 
     if (filteredTasks.length === 0) {
-        list.innerHTML = `
+        list.innerHTML = \`
             <div class="p-8 text-center text-slate-400 dark:text-slate-500 font-mono text-xs">
                 No active tasks found matching search criteria.
             </div>
-        `;
+        \`;
         return;
     }
 
     filteredTasks.forEach(task => {
         const item = document.createElement('div');
-        item.className = `task-container group border-b border-slate-100 dark:border-slate-800/85 transition-all duration-300 ${task.completed ? 'opacity-65 bg-slate-50/40 dark:bg-slate-900/10' : 'bg-white dark:bg-slate-950'}`;
+        const isCompleted = !!task.completedAt;
+        item.className = \`task-container group border-b border-slate-100 dark:border-slate-800/85 transition-all duration-300 \${isCompleted ? 'opacity-65 bg-slate-50/40 dark:bg-slate-900/10' : 'bg-white dark:bg-slate-950'}\`;
         
-        let priorityBadge = task.priority ? `<span class="px-2 py-0.5 border border-red-500 text-red-500 dark:border-red-400 dark:text-red-400 font-mono text-[9px] font-bold tracking-wider uppercase bg-red-500/5 select-none">PRIORITY</span>` : '';
-        let categoryBadge = `<span class="px-2 py-0.5 border border-slate-400 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-mono text-[9px] font-bold tracking-wider uppercase select-none">${task.category}</span>`;
+        let categoryBadge = \`<span class="px-2 py-0.5 border border-slate-400 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-mono text-[9px] font-bold tracking-wider uppercase select-none">\${task.type}</span>\`;
         
-        let attachmentsBadge = task.attachments.length > 0 ? `
+        let attachmentsBadge = task.attachmentUrl ? \`
             <span class="flex items-center gap-1 font-mono text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 select-none">
-                <span class="material-symbols-outlined text-[12px]">attachment</span>
-                ${task.attachments.length} ${task.attachments.length > 1 ? 'Items' : 'Item'}
-            </span>` : '';
+                <span class="material-symbols-outlined text-[12px]">attachment</span> 1 Item
+            </span>\` : '';
 
-        let checkIcon = task.completed ? `
+        let checkIcon = isCompleted ? \`
             <div class="w-5 h-5 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-950 flex items-center justify-center flex-shrink-0 cursor-pointer border border-slate-800 dark:border-slate-200 transition-colors">
                 <span class="material-symbols-outlined text-[12px] font-extrabold">check</span>
-            </div>` : `
-            <div class="w-5 h-5 border border-slate-400 dark:border-slate-500 flex-shrink-0 group-hover:border-primary dark:group-hover:border-sky-blue-dark transition-colors cursor-pointer bg-white dark:bg-slate-900"></div>`;
+            </div>\` : \`
+            <div class="w-5 h-5 border border-slate-400 dark:border-slate-500 flex-shrink-0 group-hover:border-primary dark:group-hover:border-sky-blue-dark transition-colors cursor-pointer bg-white dark:bg-slate-900"></div>\`;
 
-        const sDate = task.startDate || task.dueDate || '';
-        const sTime = task.startTime || task.dueTime || '';
-        const eDate = task.endDate || task.dueDate || '';
-        const eTime = task.endTime || task.dueTime || '';
-        const rangeText = `${formatDate(sDate)} (${sTime}) to ${formatDate(eDate)} (${eTime})`;
+        const sDate = new Date(task.startDate);
+        const eDate = new Date(task.endDate);
+        const rangeText = \`\${sDate.toLocaleDateString()} (\${sDate.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}) to \${eDate.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}\`;
 
-        item.innerHTML = `
+        item.innerHTML = \`
             <div class="p-5 md:p-6 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer task-click-info">
-                <!-- Left side: Checkbox + Title + Timeframe -->
                 <div class="flex items-start gap-4 flex-1 min-w-0">
                     <div class="task-checkbox-wrapper mt-0.5 shrink-0">
-                        ${checkIcon}
+                        \${checkIcon}
                     </div>
                     <div class="space-y-1.5 min-w-0">
-                        <h3 class="font-headline font-bold text-base text-slate-900 dark:text-white leading-tight ${task.completed ? 'line-through text-slate-400 dark:text-slate-500 font-medium' : ''}">
-                            ${task.title}
+                        <h3 class="font-headline font-bold text-base text-slate-900 dark:text-white leading-tight \${isCompleted ? 'line-through text-slate-400 dark:text-slate-500 font-medium' : ''}">
+                            \${task.title}
                         </h3>
                         <div class="flex items-center gap-3 flex-wrap text-xs text-slate-500 dark:text-slate-400 font-mono text-[11px]">
                             <span class="flex items-center gap-1 select-none">
                                 <span class="material-symbols-outlined text-sm">schedule</span>
-                                ${rangeText}
+                                \${rangeText}
                             </span>
-                            ${attachmentsBadge}
+                            \${attachmentsBadge}
                         </div>
                     </div>
                 </div>
 
-                <!-- Right side: Badges & Action Buttons -->
                 <div class="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
                     <div class="flex items-center gap-1.5 flex-wrap">
-                        ${categoryBadge}
-                        ${priorityBadge}
+                        \${categoryBadge}
                     </div>
                     
                     <div class="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-4">
                         <button class="task-delete-btn text-slate-400 hover:text-error dark:hover:text-red-400 transition-colors p-1" title="Delete Task">
                             <span class="material-symbols-outlined text-base">delete</span>
                         </button>
-                        <span class="material-symbols-outlined text-slate-400 group-hover:text-primary dark:group-hover:text-sky-blue-dark transition-transform duration-200 task-expand-icon">expand_more</span>
                     </div>
                 </div>
             </div>
-            
-            <!-- Expandable Details -->
-            <div class="max-height-0 overflow-hidden opacity-0 transition-all duration-300 bg-slate-50/50 dark:bg-slate-900/10 px-6 border-t border-slate-200 dark:border-slate-800 task-expand-panel">
-                <div class="py-5 space-y-4">
-                    <div class="flex flex-col lg:flex-row gap-6">
-                        <!-- Notes -->
-                        <div class="flex-1">
-                            <span class="block font-mono text-[9px] text-slate-400 uppercase tracking-widest mb-1.5 select-none font-bold">Task Description</span>
-                            <p class="font-body text-sm text-slate-600 dark:text-slate-400 border-l-2 border-slate-300 dark:border-slate-700 pl-4 py-1 leading-relaxed">
-                                ${task.notes}
-                            </p>
-                        </div>
-                        
-                        <!-- Attachments list (if any) -->
-                        <div class="lg:w-80 shrink-0">
-                            <span class="block font-mono text-[9px] text-slate-400 uppercase tracking-widest mb-1.5 select-none font-bold">Attachments</span>
-                            <div class="attachments-grid space-y-2"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        \`;
 
-        // Register Handlers
         item.querySelector('.task-checkbox-wrapper').addEventListener('click', async (e) => {
             e.stopPropagation();
-            task.completed = !task.completed;
-            await updateTask(task.id, { completed: task.completed });
-            renderAll();
+            const updates = { completedAt: isCompleted ? null : new Date().toISOString() };
+            await Store.updateTask(task.id, updates);
         });
 
-        const togglePanel = item.querySelector('.task-expand-panel');
-        const toggleIcon = item.querySelector('.task-expand-icon');
-        const clickArea = item.querySelector('.task-click-info');
-        
-        const performToggle = () => {
-            if (togglePanel.classList.contains('task-expanded')) {
-                togglePanel.classList.remove('task-expanded');
-                togglePanel.style.maxHeight = '0';
-                togglePanel.style.opacity = '0';
-                toggleIcon.style.transform = 'rotate(0deg)';
-            } else {
-                // Populate attachments
-                const attachGrid = togglePanel.querySelector('.attachments-grid');
-                attachGrid.innerHTML = '';
-                
-                if (task.attachments.length === 0) {
-                    attachGrid.innerHTML = `<p class="text-xs font-mono text-slate-400 italic">No files or links attached.</p>`;
-                } else {
-                    task.attachments.forEach(att => {
-                        const box = document.createElement('div');
-                        box.className = "flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-primary dark:hover:border-sky-blue-dark transition-colors";
-                        
-                        const isUrl = att.url ? true : false;
-                        const iconName = isUrl ? 'link' : 'description';
-                        const labelName = att.name;
-                        
-                        let actionHtml = '';
-                        if (isUrl) {
-                            actionHtml = `
-                                <a class="flex items-center gap-3 w-full" href="${att.url}" target="_blank">
-                                    <span class="material-symbols-outlined text-slate-500 text-sm">${iconName}</span>
-                                    <div class="text-left flex-1 min-w-0">
-                                        <p class="font-headline text-xs font-bold text-slate-800 dark:text-slate-200 truncate">${labelName}</p>
-                                        <p class="text-[9px] text-slate-400 font-mono truncate">${att.url}</p>
-                                    </div>
-                                    <span class="ml-auto material-symbols-outlined text-[14px] text-slate-400">open_in_new</span>
-                                </a>
-                            `;
-                        } else {
-                            actionHtml = `
-                                <a class="flex items-center gap-3 w-full" href="${att.dataUrl || '#'}" download="${att.name}">
-                                    <span class="material-symbols-outlined text-slate-500 text-sm">${iconName}</span>
-                                    <div class="text-left flex-1 min-w-0">
-                                        <p class="font-headline text-xs font-bold text-slate-800 dark:text-slate-200 truncate">${labelName}</p>
-                                        <p class="text-[9px] text-slate-400 font-mono">${att.size}</p>
-                                    </div>
-                                    <span class="ml-auto material-symbols-outlined text-[14px] text-slate-400" title="Download file">download</span>
-                                </a>
-                            `;
-                        }
-
-                        box.innerHTML = actionHtml;
-                        attachGrid.appendChild(box);
-                    });
-                }
-
-                togglePanel.classList.add('task-expanded');
-                togglePanel.style.maxHeight = '500px';
-                togglePanel.style.opacity = '1';
-                toggleIcon.style.transform = 'rotate(180deg)';
-            }
-        };
-
-        clickArea.addEventListener('click', performToggle);
-
-        // Delete Handler
         item.querySelector('.task-delete-btn').addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (confirm(`Delete task "${task.title}"?`)) {
-                const deleted = await deleteTask(task.id);
-                if (deleted) {
-                    APP_STATE.tasks = APP_STATE.tasks.filter(t => t.id !== task.id);
-                    renderAll();
-                }
+            if (confirm(\`Delete task "\${task.title}"?\`)) {
+                await Store.deleteTask(task.id);
             }
         });
 
@@ -868,14 +519,17 @@ function renderActiveTasksList() {
     });
 }
 
-// 2. Calendar View rendering (Duration-aware)
+// ─── Calendar Render ─────────────────────────────────────────────────────────
+
 function renderCalendar() {
     const calendarGrid = document.getElementById('calendar-weekly-grid');
     if (!calendarGrid) return;
+    const { tasks } = Store.getState();
 
     calendarGrid.innerHTML = '';
 
     const hours = ["8 AM", "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "6 PM", "7 PM"];
+    // Simplified date mapping for demo purposes (using a fixed week to match static UI)
     const dateMap = [
         { name: 'MON', dateStr: '2023-10-23' },
         { name: 'TUE', dateStr: '2023-10-24' },
@@ -887,74 +541,58 @@ function renderCalendar() {
     ];
 
     hours.forEach(hour => {
-        // Label col
         const labelCol = document.createElement('div');
         labelCol.className = 'h-20 border-b border-r border-slate-200 dark:border-slate-800 flex items-start justify-center pt-2 bg-white dark:bg-slate-900';
-        labelCol.innerHTML = `<span class="font-label-sm text-[10px] text-slate-400 dark:text-slate-500">${hour}</span>`;
+        labelCol.innerHTML = \`<span class="font-label-sm text-[10px] text-slate-400 dark:text-slate-500">\${hour}</span>\`;
         calendarGrid.appendChild(labelCol);
 
-        // Days columns
-        dateMap.forEach((dayInfo, dayIdx) => {
+        dateMap.forEach((dayInfo) => {
             const cell = document.createElement('div');
             cell.className = 'h-20 border-b border-r border-slate-200 dark:border-slate-800 relative hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors bg-white dark:bg-slate-900';
             
             const queryTimeStr = hourTo24String(hour);
 
-            // Match tasks that START on this date at this exact hour
-            const dayTasks = APP_STATE.tasks.filter(t => {
-                const sDate = t.startDate || t.dueDate || '';
-                const sTime = t.startTime || t.dueTime || '';
-                return sDate === dayInfo.dateStr && sTime.startsWith(queryTimeStr.split(':')[0]);
+            // Using local strings to match the fixed dates for demo
+            const dayTasks = tasks.filter(t => {
+                const startObj = new Date(t.startDate);
+                const localDateStr = startObj.getFullYear() + '-' + String(startObj.getMonth()+1).padStart(2, '0') + '-' + String(startObj.getDate()).padStart(2, '0');
+                const localHourStr = String(startObj.getHours()).padStart(2, '0') + ':00';
+                return localDateStr === dayInfo.dateStr && localHourStr === queryTimeStr;
             });
 
             dayTasks.forEach(task => {
-                // Calculate span duration
                 const duration = getDurationHours(task);
-                // Row height is 80px, calculate layout height: (duration * 80) - margin offsets
                 const cardHeightPx = Math.max(72, (duration * 80) - 8);
 
                 const taskCard = document.createElement('div');
-                taskCard.style.height = `${cardHeightPx}px`;
-                taskCard.className = `absolute inset-x-1 top-1 p-2 text-xs border-l-4 shadow-sm z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform ${
-                    task.completed ? 'opacity-40 bg-slate-200 text-slate-800 border-slate-400 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600' :
-                    task.category === 'OFFICE' ? 'bg-slate-800 text-white border-primary dark:bg-slate-950 dark:border-sky-blue-dark' : 
+                taskCard.style.height = \`\${cardHeightPx}px\`;
+                taskCard.className = \`absolute inset-x-1 top-1 p-2 text-xs border-l-4 shadow-sm z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform \${
+                    task.completedAt ? 'opacity-40 bg-slate-200 text-slate-800 border-slate-400 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600' :
+                    task.type === 'OFFICE' ? 'bg-slate-800 text-white border-primary dark:bg-slate-950 dark:border-sky-blue-dark' : 
                     'bg-primary text-white border-slate-900 dark:bg-sky-blue-dark dark:text-slate-950 dark:border-white'
-                }`;
+                }\`;
                 
-                // Duration format
-                const sTime = task.startTime || task.dueTime || '';
-                const eTime = task.endTime || task.dueTime || '';
-                const timeRange = `${sTime} - ${eTime}`;
+                let attachmentHtml = '';
+                if (task.attachmentUrl) {
+                    if (task.attachmentUrl.match(/\.(jpeg|jpg|gif|png|webp|avif)/i)) {
+                        attachmentHtml = \`<img src="\${task.attachmentUrl}" class="w-full h-10 object-cover mt-1 opacity-80" />\`;
+                    } else {
+                        attachmentHtml = \`<div class="text-[9px] mt-1 font-mono opacity-80 truncate"><span class="material-symbols-outlined text-[10px]">link</span> Attached</div>\`;
+                    }
+                }
 
-                taskCard.innerHTML = `
+                taskCard.innerHTML = \`
                     <div class="h-full flex flex-col justify-between">
                         <div>
-                            <p class="font-bold truncate">${task.title}</p>
-                            <p class="opacity-80 truncate text-[9px] font-mono">${task.category} • ${timeRange}</p>
+                            <p class="font-bold truncate">\${task.title}</p>
+                            \${attachmentHtml}
                         </div>
-                        ${duration > 1.2 ? `
-                        <div class="mt-auto pt-1 border-t border-white/20 flex justify-between text-[9px] opacity-75 font-mono">
-                            <span>Dur: ${duration.toFixed(1)}h</span>
-                            <span>${task.attachments.length} att</span>
-                        </div>` : ''}
                     </div>
-                `;
-
-                // Redirect to details on click
-                taskCard.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    switchTab('home');
-                    const searchInput = document.getElementById('task-search-input');
-                    if (searchInput) {
-                        searchInput.value = task.title;
-                        searchInput.dispatchEvent(new Event('input'));
-                    }
-                });
+                \`;
 
                 cell.appendChild(taskCard);
             });
 
-            // Double click to create task pre-filled
             cell.addEventListener('dblclick', () => {
                 toggleModal(dayInfo.dateStr, queryTimeStr);
             });
@@ -965,28 +603,14 @@ function renderCalendar() {
 }
 
 function getDurationHours(task) {
-    const sDate = task.startDate || task.dueDate || '';
-    const sTime = task.startTime || task.dueTime || '09:00';
-    const eDate = task.endDate || task.dueDate || sDate || '';
-    const eTime = task.endTime || task.dueTime || '10:00';
-    
-    const startStr = `${sDate}T${sTime}`;
-    const endStr = `${eDate}T${eTime}`;
-    const start = new Date(startStr);
-    const end = new Date(endStr);
-    
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        return 1.0;
-    }
-
+    const start = new Date(task.startDate);
+    const end = new Date(task.endDate);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 1.0;
     const diffMs = end - start;
     if (diffMs <= 0) return 1.0;
-
-    const diffHours = diffMs / (1000 * 60 * 60);
-    return Math.min(12.0, diffHours);
+    return Math.min(12.0, diffMs / (1000 * 60 * 60));
 }
 
-// Helper: hour to 24h
 function hourTo24String(h) {
     const [num, meridian] = h.split(' ');
     let hr = parseInt(num);
@@ -995,126 +619,60 @@ function hourTo24String(h) {
     return String(hr).padStart(2, '0') + ':00';
 }
 
-// 3. Analytics & Habits Detail View
+// ─── Analytics & Habits View ─────────────────────────────────────────────────
+
 function renderAnalyticsView() {
+    const { habits, analyticsData } = Store.getState();
     const container = document.getElementById('habits-management-list');
     if (!container) return;
 
     container.innerHTML = '';
     
-    APP_STATE.habits.forEach(habit => {
+    habits.forEach(habit => {
         const item = document.createElement('div');
-        item.className = "p-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-lg";
+        item.className = "p-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-lg mb-4 p-4";
         
-        let daysHtml = '';
-        const dayKeys = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-        
-        dayKeys.forEach(d => {
-            const val = habit.days[d];
-            daysHtml += `
-                <div class="flex flex-col items-center gap-1 cursor-pointer flex-1 min-w-[32px] hover:bg-slate-50 dark:hover:bg-slate-800 p-1 select-none font-label-sm" data-day="${d}">
-                    <span class="text-[10px] text-slate-400 dark:text-slate-500">${d}</span>
-                    <div class="w-8 h-8 flex items-center justify-center border ${
-                        val ? 'bg-primary border-primary text-white dark:bg-sky-blue-dark dark:border-sky-blue-dark dark:text-slate-900' :
-                        'bg-slate-100 border-slate-300 text-transparent dark:bg-slate-800 dark:border-slate-700'
-                    }">
-                        <span class="material-symbols-outlined text-xs font-bold">check</span>
-                    </div>
-                </div>
-            `;
-        });
-
-        item.innerHTML = `
+        // Find recent completions for this week conceptually
+        item.innerHTML = \`
             <div class="flex-1 space-y-md">
-                <div class="flex items-center gap-md">
-                    <h3 class="font-headline-md text-lg font-bold text-slate-900 dark:text-white">${habit.name}</h3>
-                    <span class="px-2 py-0.5 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs font-mono font-bold">${habit.streak} Days Streak</span>
+                <div class="flex items-center gap-md mb-2">
+                    <h3 class="font-headline-md text-lg font-bold text-slate-900 dark:text-white">\${habit.title}</h3>
+                    <span class="px-2 py-0.5 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs font-mono font-bold">\${habit.repeatableType}</span>
                 </div>
-                <div class="flex items-center gap-2 max-w-[280px]">
-                    <div class="w-full bg-slate-200 dark:bg-slate-800 h-2">
-                        <div class="bg-primary dark:bg-sky-blue-dark h-2" style="width: ${calculateHabitScore(habit)}%"></div>
-                    </div>
-                    <span class="font-label-sm text-xs text-slate-500">${calculateHabitScore(habit)}%</span>
-                </div>
+                <div class="text-xs text-slate-500 font-mono">\${habit.logs ? habit.logs.length : 0} Total Check-ins</div>
             </div>
             
-            <div class="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-md overflow-x-auto">
-                ${daysHtml}
-            </div>
-
-            <div class="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-md">
+            <div class="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-4">
                 <button class="habit-delete-btn text-slate-400 hover:text-error transition-colors p-1" title="Delete Habit">
                     <span class="material-symbols-outlined">delete</span>
                 </button>
             </div>
-        `;
+        \`;
 
-        // Days check actions
-        item.querySelectorAll('[data-day]').forEach(dayEl => {
-            dayEl.addEventListener('click', async () => {
-                const d = dayEl.getAttribute('data-day');
-                habit.days[d] = !habit.days[d];
-                recalculateHabitStreak(habit);
-                await updateHabit(habit.id, { days: habit.days });
-                renderAll();
-            });
-        });
-
-        // Delete action
         item.querySelector('.habit-delete-btn').addEventListener('click', async () => {
-            if (confirm(`Delete habit "${habit.name}"?`)) {
-                const deleted = await deleteHabit(habit.id);
-                if (deleted) {
-                    APP_STATE.habits = APP_STATE.habits.filter(h => h.id !== habit.id);
-                    renderAll();
-                }
+            if (confirm(\`Delete habit "\${habit.title}"?\`)) {
+                await Store.deleteHabit(habit.id);
             }
         });
 
         container.appendChild(item);
     });
 
-    // Add habit creation form listener (bind only once)
     const addHabitForm = document.getElementById('add-habit-form');
     if (addHabitForm && !addHabitForm.dataset.listener) {
         addHabitForm.dataset.listener = 'true';
         addHabitForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const input = document.getElementById('new-habit-input');
-            const name = input.value.trim();
-            if (!name) return;
+            const title = input.value.trim();
+            if (!title) return;
 
-            const newHabit = {
-                id: 'habit-' + Date.now(),
-                name: name,
-                streak: 0,
-                days: { MON: false, TUE: false, WED: false, THU: false, FRI: false, SAT: false, SUN: false }
-            };
-
-            const createdHabit = await createHabit({ name });
-            if (createdHabit) {
-                APP_STATE.habits.push(createdHabit);
-            }
+            await Store.createHabit({
+                title: title,
+                type: 'general',
+                repeatableType: 'daily'
+            });
             input.value = '';
-            renderAll();
         });
     }
-}
-
-function calculateHabitScore(habit) {
-    let checkedCount = 0;
-    Object.values(habit.days).forEach(val => { if (val) checkedCount++; });
-    return Math.round((checkedCount / 7) * 100);
-}
-
-// Helpers
-function formatDate(dateStr) {
-    if (!dateStr) return '';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return dateStr;
-    const year = parts[0];
-    const month = months[parseInt(parts[1]) - 1];
-    const day = parseInt(parts[2]);
-    return `${month} ${day}, ${year}`;
 }

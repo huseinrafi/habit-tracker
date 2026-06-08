@@ -1,0 +1,95 @@
+// ─── Prisma Schema ──────────────────────────────────────────────────────────
+// Habit Tracker – PostgreSQL database schema
+// Run `npx prisma migrate dev --name init` to apply migrations
+// Run `npx prisma generate` to regenerate the Prisma Client
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.0.x"] // rhel target for AWS Lambda
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum RepeatableType {
+  daily
+  weekly
+  monthly
+  disable
+}
+
+enum HabitRepeatableType {
+  daily
+  weekly
+  monthly
+}
+
+// ─── Models ─────────────────────────────────────────────────────────────────
+
+model User {
+  id    String @id @default(uuid())
+  email String @unique
+  nama  String
+
+  tasks  Task[]
+  habits Habit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Task {
+  id             String         @id @default(uuid())
+  userId         String
+  title          String
+  startDate      DateTime
+  endDate        DateTime
+  type           String
+  repeatableType RepeatableType @default(disable)
+  attachmentUrl  String?
+  completedAt    DateTime?      // null = belum selesai, ada value = selesai
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("tasks")
+}
+
+model Habit {
+  id             String              @id @default(uuid())
+  userId         String
+  title          String
+  type           String
+  repeatableType HabitRepeatableType @default(daily)
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs HabitLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("habits")
+}
+
+model HabitLog {
+  id            String   @id @default(uuid())
+  habitId       String
+  dateCompleted DateTime
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([habitId])
+  @@map("habit_logs")
+}

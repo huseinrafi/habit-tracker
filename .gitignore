@@ -8,4 +8,7 @@ node_modules/
 
 # Package lock file
 package-lock.json
+
+implementation_plan.md
+Planning.md
 ```
