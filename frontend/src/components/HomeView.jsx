@@ -3,7 +3,7 @@ import { useStore } from '../store/store';
 import { format, subDays, startOfWeek, addDays, isSameDay } from 'date-fns';
 
 export default function HomeView() {
-  const { streakData, analyticsData, tasks, updateTask, checkHabit, deleteTask } = useStore();
+  const { streakData, analyticsData, tasks, updateTask, checkHabit, deleteTask, habits } = useStore();
   const [expandedTaskImage, setExpandedTaskImage] = useState(null);
   
   const completionPercentage = analyticsData?.habits?.thisWeek?.percentage || 0;
@@ -50,9 +50,10 @@ export default function HomeView() {
                   <div className="flex items-center justify-between gap-1">
                       {weekDays.map((day, idx) => {
                           const dateStr = format(day, 'yyyy-MM-dd');
-                          // Assuming habit.logs exists or we determine completion from a mock check.
-                          // Since we rely on streakData, let's just make it toggleable by calling checkHabit(id, date)
-                          // For display, if it's not completed today, it's empty.
+                          // Find habit in habits array
+                          const habitData = habits?.find(h => h.id === habit.habitId);
+                          // Check if there is a log for this day
+                          const isCompleted = habitData?.logs?.some(log => isSameDay(new Date(log.dateCompleted), day));
                           const isToday = isSameDay(day, new Date());
                           return (
                             <div 
@@ -63,9 +64,8 @@ export default function HomeView() {
                                 hover:bg-primary/20`}
                             >
                                 <span className="text-[8px] font-mono text-slate-400 mb-1">{format(day, 'EEE')}</span>
-                                <div className="w-4 h-4 bg-slate-200 dark:bg-slate-800 rounded-sm flex items-center justify-center">
-                                  {/* Since backend streakData doesn't return logs array for this endpoint currently, we will just simulate UI checks if they click it, it fires API */}
-                                  <span className="text-[10px] text-primary"></span>
+                                <div className={`w-4 h-4 rounded-sm flex items-center justify-center ${isCompleted ? 'bg-primary dark:bg-sky-blue-dark' : 'bg-slate-200 dark:bg-slate-800'}`}>
+                                  {isCompleted && <span className="material-symbols-outlined text-[10px] text-white font-bold">check</span>}
                                 </div>
                             </div>
                           );
@@ -150,11 +150,11 @@ export default function HomeView() {
                             {/* Dropdown Image */}
                             {task.attachmentUrl && expandedTaskImage === task.id && (
                               <div className="mt-3 bg-slate-100 dark:bg-slate-900 p-2 border border-slate-200 dark:border-slate-700">
-                                {task.attachmentUrl.match(/\.(jpeg|jpg|gif|png|webp|avif)/i) ? (
+                                {task.attachmentUrl.match(/\.(jpeg|jpg|gif|png|webp|avif)(\?.*)?$/i) ? (
                                   <img src={task.attachmentUrl} alt="attachment" className="max-w-full h-auto max-h-64 object-contain" />
                                 ) : (
                                   <a href={task.attachmentUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-sm">open_in_new</span> Open Link
+                                    <span className="material-symbols-outlined text-sm">{task.attachmentUrl.match(/^https?:\/\/[a-z0-9-]+\.s3\./i) ? 'download' : 'open_in_new'}</span> {task.attachmentUrl.match(/^https?:\/\/[a-z0-9-]+\.s3\./i) ? 'Download File' : 'Open Link'}
                                   </a>
                                 )}
                               </div>

@@ -35,7 +35,7 @@ export const ApiClient = {
   createHabit: (data) => api.post('/habits', data).then((res) => res.data),
   updateHabit: (id, data) => api.put(`/habits/${id}`, data).then((res) => res.data),
   deleteHabit: (id) => api.delete(`/habits/${id}`).then((res) => res.data),
-  checkHabit: (id, date) => api.post(`/habits/${id}/check-in`, { date }).then((res) => res.data),
+  checkHabit: (id, date) => api.post(`/habits/${id}/log`, { dateCompleted: date }).then((res) => res.data),
   
   // Dashboard / Analytics
   getStreak: () => api.get('/dashboard/streak').then((res) => res.data),

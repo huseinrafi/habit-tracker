@@ -135,6 +135,9 @@ const updateTask = async (req, res) => {
     if (type !== undefined) updateData.type = type;
     if (repeatableType !== undefined) updateData.repeatableType = repeatableType;
     if (attachmentUrl !== undefined) updateData.attachmentUrl = attachmentUrl;
+    if (req.body.completedAt !== undefined) {
+      updateData.completedAt = req.body.completedAt ? new Date(req.body.completedAt) : null;
+    }
 
     const task = await prisma.task.update({
       where: { id },

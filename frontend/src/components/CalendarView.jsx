@@ -11,7 +11,12 @@ export default function CalendarView() {
   const goToday = () => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   const days = Array.from({ length: 7 }).map((_, i) => addDays(currentWeekStart, i));
-  const hours = ["8 AM", "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "6 PM", "7 PM"];
+  const hours = Array.from({ length: 24 }).map((_, i) => {
+    if (i === 0) return "12 AM";
+    if (i < 12) return `${i} AM`;
+    if (i === 12) return "12 PM";
+    return `${i - 12} PM`;
+  });
 
   const getHourNumber = (hStr) => {
     const [num, meridian] = hStr.split(' ');
@@ -73,11 +78,25 @@ export default function CalendarView() {
                         {days.map((day, dIdx) => {
                           const targetHour = getHourNumber(hour);
                           
-                          // Filter tasks that start on this day and hour
                           const cellTasks = tasks.filter(t => {
-                              if(!t.startDate) return false;
+                              if(!t.startDate || !t.endDate) return false;
                               const start = new Date(t.startDate);
-                              return isSameDay(start, day) && start.getHours() === targetHour;
+                              const end = new Date(t.endDate);
+                              
+                              const currentDayStart = new Date(day);
+                              currentDayStart.setHours(0, 0, 0, 0);
+
+                              // Task starts in this exact cell
+                              if (isSameDay(start, day) && start.getHours() === targetHour) {
+                                  return true;
+                              }
+                              
+                              // Task started before this day, and this is the first cell of the day (midnight), and it hasn't ended yet
+                              if (start < currentDayStart && end > currentDayStart && targetHour === 0) {
+                                  return true;
+                              }
+                              
+                              return false;
                           });
 
                           return (
@@ -85,7 +104,11 @@ export default function CalendarView() {
                               {cellTasks.map(task => {
                                 const startObj = new Date(task.startDate);
                                 const endObj = new Date(task.endDate);
-                                const durationHrs = Math.max(1, (endObj - startObj) / (1000 * 60 * 60));
+                                
+                                let renderStart = new Date(Math.max(startObj.getTime(), new Date(day).setHours(0, 0, 0, 0)));
+                                let renderEnd = new Date(Math.min(endObj.getTime(), new Date(day).setHours(24, 0, 0, 0)));
+                                
+                                const durationHrs = Math.max(0.5, (renderEnd - renderStart) / (1000 * 60 * 60));
                                 const cardHeight = Math.max(72, (durationHrs * 80) - 8);
 
                                 let cardClasses = "absolute inset-x-1 top-1 p-2 text-xs border-l-4 shadow-sm z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform ";
@@ -103,7 +126,7 @@ export default function CalendarView() {
                                           <div>
                                               <p className="font-bold truncate">{task.title}</p>
                                               {task.attachmentUrl && (
-                                                task.attachmentUrl.match(/\.(jpeg|jpg|gif|png|webp|avif)/i) ? 
+                                                task.attachmentUrl.match(/\.(jpeg|jpg|gif|png|webp|avif)(\?.*)?$/i) ? 
                                                 <img src={task.attachmentUrl} alt="attachment" className="w-full h-10 object-cover mt-1 opacity-80" /> :
                                                 <div className="text-[9px] mt-1 font-mono opacity-80 truncate"><span className="material-symbols-outlined text-[10px]">link</span> Attached</div>
                                               )}

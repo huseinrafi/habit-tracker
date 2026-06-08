@@ -93,4 +93,6 @@ app.use((req, res) => {
 // 1. `app`     → for local development (imported by server.js)
 // 2. `handler` → for AWS Lambda via serverless-http
 module.exports.app = app;
-module.exports.handler = serverless(app);
+module.exports.handler = serverless(app, {
+  binary: ['image/*', 'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'application/octet-stream', 'application/pdf']
+});

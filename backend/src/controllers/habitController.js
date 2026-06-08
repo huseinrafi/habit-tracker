@@ -186,6 +186,29 @@ const logHabitCompletion = async (req, res) => {
       });
     }
 
+    // Toggle logic: check if log exists for this day
+    const dayStart = new Date(completedDate);
+    dayStart.setUTCHours(0, 0, 0, 0);
+
+    const dayEnd = new Date(completedDate);
+    dayEnd.setUTCHours(23, 59, 59, 999);
+
+    const existingLog = await prisma.habitLog.findFirst({
+      where: {
+        habitId: id,
+        dateCompleted: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+      },
+    });
+
+    if (existingLog) {
+      // Uncheck (delete log)
+      await prisma.habitLog.delete({ where: { id: existingLog.id } });
+      return res.status(200).json({ status: 'success', message: 'Habit log removed' });
+    }
+
     const log = await prisma.habitLog.create({
       data: {
         habitId: id,

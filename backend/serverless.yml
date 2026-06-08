@@ -10,6 +10,11 @@ provider:
   environment:
     NODE_ENV: ${self:provider.stage}
     DATABASE_URL: ${env:DATABASE_URL, ''}
+  apiGateway:
+    binaryMediaTypes:
+      - '*/*'
+      - 'image/*'
+      - 'multipart/form-data'
 
 # ─── Packaging ──────────────────────────────────────────────────────────────
 package:
