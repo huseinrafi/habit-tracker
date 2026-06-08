@@ -13,7 +13,33 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
  *   const { authenticate } = require('./middlewares/auth');
  *   router.get('/protected', authenticate, (req, res) => { ... });
  */
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
+  // ─── BYPASS UNTUK DEVELOPMENT ──────────────────────────────────────────────
+  if (process.env.NODE_ENV === 'development' || process.env.IS_OFFLINE === 'true') {
+    const prisma = req.app.get('prisma');
+    const dummyUserId = '00000000-0000-0000-0000-000000000001';
+    const dummyEmail = 'test@developer.local';
+
+    // Pastikan user dummy ada di database agar tidak kena foreign key error
+    try {
+      await prisma.user.upsert({
+        where: { email: dummyEmail },
+        update: {},
+        create: {
+          id: dummyUserId,
+          email: dummyEmail,
+          nama: 'Developer Tester'
+        }
+      });
+      req.user = { userId: dummyUserId, email: dummyEmail };
+      console.log('⚠️  [DEV] Auth Bypassed: Injecting Dummy User ID');
+      return next();
+    } catch (err) {
+      console.error('Gagal membuat user dummy:', err);
+      // Fallthrough to normal auth error if it fails
+    }
+  }
+
   try {
     // ─── 1. Extract token from Authorization header ──────────────────────
     const authHeader = req.headers.authorization;
@@ -21,7 +47,7 @@ const authenticate = (req, res, next) => {
     if (!authHeader) {
       return res.status(401).json({
         status: 'error',
-        message: 'Akses ditolak. Token tidak ditemukan.',
+        message: 'Akses ditolak. Token tidak ditemukan (Dan tidak dalam mode development).',
       });
     }
 

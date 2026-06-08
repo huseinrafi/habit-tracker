@@ -7,7 +7,7 @@ const ApiClient = (() => {
     // ─── Config ──────────────────────────────────────────────────────────────
     // In production, point this to your API Gateway URL.
     // e.g. 'https://abc123.execute-api.ap-southeast-1.amazonaws.com'
-    const BASE_URL = localStorage.getItem('api_base_url') || 'http://localhost:3000/api';
+    const BASE_URL = localStorage.getItem('api_base_url') || 'http://localhost:3001/api';
 
     // ─── Token Management ────────────────────────────────────────────────────
     function getToken() {
@@ -130,6 +130,7 @@ const ApiClient = (() => {
 
     // Health
     const health = () => get('/health');
+    const healthCheck = () => get('/health-check');
 
     // ─── Public Interface ────────────────────────────────────────────────────
     return {
@@ -138,7 +139,7 @@ const ApiClient = (() => {
         // Token management
         getToken, setToken, removeToken, isAuthenticated,
         // Domain APIs
-        auth, tasks, habits, dashboard, health,
+        auth, tasks, habits, dashboard, health, healthCheck,
         // Config
         BASE_URL,
     };

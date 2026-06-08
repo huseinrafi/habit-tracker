@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const serverless = require('serverless-http');
 const { PrismaClient } = require('@prisma/client');
+require('dotenv').config();
 
 // ─── Prisma Client (singleton) ──────────────────────────────────────────────
 // Reuse the client across warm Lambda invocations to avoid exhausting DB connections
@@ -11,7 +12,10 @@ const prisma = new PrismaClient();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
+  credentials: true
+}));
 app.use(express.json({ limit: '5mb' }));
 
 // Make prisma available to route handlers via req.app
@@ -27,6 +31,10 @@ app.use('/api/habits', habitsRouter);
 app.use('/api/dashboard', dashboardRouter);
 
 // ─── Health Check ────────────────────────────────────────────────────────────
+app.get('/api/health-check', (req, res) => {
+  res.json({ status: 'connected', message: 'Backend Serverless siap menerima request!' });
+});
+
 app.get('/api/health', async (req, res) => {
   try {
     // Verify DB connectivity

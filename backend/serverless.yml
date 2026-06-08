@@ -2,7 +2,7 @@ service: habit-tracker-backend
 
 provider:
   name: aws
-  runtime: nodejs18.x
+  runtime: nodejs20.x
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'ap-southeast-1'}
   memorySize: 512

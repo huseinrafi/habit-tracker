@@ -29,9 +29,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Dummy Auth Token setup (For development/testing purposes without Login UI)
     if (!ApiClient.isAuthenticated()) {
-        // We need a valid JWT token to interact with the backend. 
-        // In a real app, the user would login. Here we warn the console.
         console.warn("No auth token found! API requests will fail with 401 unless you login.");
+    }
+
+    // --- INTEGRATION TEST ---
+    try {
+        const healthRes = await ApiClient.healthCheck();
+        console.log('%c✅ API CONNECTED', 'color: #4ade80; font-size: 16px; font-weight: bold;', healthRes);
+
+        // Show success indicator in the UI Header
+        const searchBox = document.querySelector('.bg-slate-50.dark\\:bg-slate-800');
+        if (searchBox) {
+            const indicator = document.createElement('div');
+            indicator.className = "ml-4 px-3 py-1 bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400 font-mono text-[10px] rounded flex items-center gap-1";
+            indicator.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> API Online';
+            searchBox.parentNode.insertBefore(indicator, searchBox.nextSibling);
+        }
+    } catch (e) {
+        console.error('%c❌ API CONNECTION FAILED', 'color: #ef4444; font-size: 16px; font-weight: bold;', e);
     }
 
     // Fetch Initial Data
@@ -72,7 +87,7 @@ function initSidebarCollapse() {
     const sidebar = document.getElementById('app-sidebar');
     const header = document.getElementById('app-header');
     const main = document.getElementById('app-main');
-    
+
     if (!toggleBtn || !sidebar || !header || !main) return;
 
     const isCollapsed = localStorage.getItem('tasktracker_sidebar_collapsed') === 'true';
@@ -87,7 +102,7 @@ function initSidebarCollapse() {
         const collapsed = sidebar.classList.toggle('sidebar-collapsed');
         header.classList.toggle('header-collapsed', collapsed);
         main.classList.toggle('main-collapsed', collapsed);
-        
+
         toggleBtn.querySelector('.material-symbols-outlined').textContent = collapsed ? 'menu' : 'menu_open';
         localStorage.setItem('tasktracker_sidebar_collapsed', collapsed ? 'true' : 'false');
     });
@@ -115,13 +130,13 @@ function initNavigation() {
 
 function switchTab(tabName) {
     Store.setActiveTab(tabName);
-    
+
     const navLinks = document.querySelectorAll('aside nav a');
     navLinks.forEach(link => {
         const linkTab = link.getAttribute('data-tab');
         const isCollapsed = document.getElementById('app-sidebar').classList.contains('sidebar-collapsed');
         if (linkTab === tabName) {
-            link.className = isCollapsed 
+            link.className = isCollapsed
                 ? "bg-primary text-white border-l-4 border-white px-4 py-3 flex items-center justify-center gap-3 transition-all duration-150 active:bg-primary-container"
                 : "bg-primary text-white border-l-4 border-white px-4 py-3 flex items-center gap-3 transition-all duration-150 active:bg-primary-container";
         } else {
@@ -169,7 +184,7 @@ let tempAttachments = [];
 
 function initModal() {
     const modal = document.getElementById('taskModal');
-    
+
     const closeBtn = modal.querySelector('button[onclick="toggleModal()"]');
     if (closeBtn) {
         closeBtn.removeAttribute('onclick');
@@ -254,15 +269,15 @@ function initModal() {
 function toggleModal(prefillDate = '', prefillTime = '') {
     const modal = document.getElementById('taskModal');
     const panel = modal.querySelector('.modal-panel');
-    
+
     if (modal.classList.contains('pointer-events-none')) {
         document.getElementById('task-form-title').value = '';
-        
+
         const defaultDate = prefillDate || new Date().toISOString().split('T')[0];
         document.getElementById('task-form-start-date').value = defaultDate;
         document.getElementById('task-form-start-time').value = prefillTime || '09:00';
         document.getElementById('task-form-end-date').value = defaultDate;
-        
+
         let endHr = 10;
         if (prefillTime) {
             const parts = prefillTime.split(':');
@@ -271,7 +286,7 @@ function toggleModal(prefillDate = '', prefillTime = '') {
         document.getElementById('task-form-end-time').value = String(endHr).padStart(2, '0') + ':00';
         document.getElementById('task-form-notes').value = '';
         document.getElementById('task-form-priority').checked = false;
-        
+
         const urlInput = document.getElementById('link-url-input');
         const labelInput = document.getElementById('link-label-input');
         if (urlInput) urlInput.value = '';
@@ -279,7 +294,7 @@ function toggleModal(prefillDate = '', prefillTime = '') {
 
         tempAttachments = [];
         renderModalAttachments();
-        
+
         const officeBtn = document.querySelector('.category-btn[data-type="office"]');
         if (officeBtn) officeBtn.click();
 
@@ -298,15 +313,15 @@ function renderModalAttachments() {
     tempAttachments.forEach((att, idx) => {
         const item = document.createElement('div');
         item.className = "bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 flex items-center gap-2";
-        
-        const typeBadge = att.file ? 'FILE' : 'LINK';
-        const displayLabel = att.file ? \`\${att.name.toUpperCase()} (\${att.size})\` : \`\${att.name.toUpperCase()} (LINK)\`;
 
-        item.innerHTML = \`
+        const typeBadge = att.file ? 'FILE' : 'LINK';
+        const displayLabel = att.file ? `${att.name.toUpperCase()} (${att.size})` : `${att.name.toUpperCase()} (LINK)`;
+
+        item.innerHTML = `
             <span class="font-label-sm text-[9px] text-slate-500 font-bold bg-slate-200 dark:bg-slate-700 px-1">\${typeBadge}</span>
             <span class="font-label-sm text-[10px] text-slate-600 dark:text-slate-300 truncate max-w-[200px]">\${displayLabel}</span>
             <button class="hover:text-error transition-colors" data-idx="\${idx}"><span class="material-symbols-outlined text-xs">close</span></button>
-        \`;
+        `;
         item.querySelector('button').addEventListener('click', () => {
             tempAttachments.splice(idx, 1);
             renderModalAttachments();
@@ -328,8 +343,8 @@ async function handleTaskSubmit() {
         return;
     }
 
-    const startObj = new Date(\`\${startDate}T\${startTime}\`);
-    const endObj = new Date(\`\${endDate}T\${endTime}\`);
+    const startObj = new Date(`${startDate}T${startTime}`);
+    const endObj = new Date(`${endDate}T${endTime}`);
     if (startObj > endObj) {
         alert("Warning: Start time occurs after End/Deadline time.");
         return;
@@ -378,13 +393,13 @@ function renderStreakJourneyWidget() {
     if (!container) return;
 
     container.innerHTML = '';
-    
+
     if (streakData && streakData.habits && streakData.habits.length > 0) {
         streakData.habits.forEach(habit => {
             const div = document.createElement('div');
             div.className = "flex items-center justify-between bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 mb-2";
-            
-            div.innerHTML = \`
+
+            div.innerHTML = `
                 <span class="font-headline text-sm font-bold text-slate-900 dark:text-white">\${habit.title}</span>
                 <div class="flex items-center gap-4">
                     <span class="font-mono text-xs text-primary dark:text-sky-blue-dark font-bold">\${habit.currentStreak} Streak</span>
@@ -392,15 +407,15 @@ function renderStreakJourneyWidget() {
                         <span class="material-symbols-outlined text-sm block">check</span>
                     </button>
                 </div>
-            \`;
-            
+            `;
+
             div.querySelector('.check-habit-btn').addEventListener('click', async () => {
                 await Store.checkHabit(habit.habitId);
             });
-            
+
             container.appendChild(div);
         });
-        
+
         const activeDaysVal = document.getElementById('dashboard-active-days');
         if (activeDaysVal) {
             activeDaysVal.textContent = streakData.summary.maxStreak;
@@ -408,15 +423,15 @@ function renderStreakJourneyWidget() {
     } else {
         container.innerHTML = '<p class="text-xs text-slate-500 font-mono">No daily habits found.</p>';
     }
-    
+
     if (analyticsData) {
         const percentScore = analyticsData.habits.thisWeek.percentage || 0;
         const scoreVal = document.getElementById('dashboard-completion-percentage');
-        if (scoreVal) scoreVal.textContent = \`\${percentScore}% COMPLETE\`;
+        if (scoreVal) scoreVal.textContent = `${percentScore}% COMPLETE`;
 
         const efficiencyVal = document.getElementById('dashboard-efficiency-val');
         if (efficiencyVal) {
-            efficiencyVal.innerHTML = \`\${percentScore}<span class="text-xl opacity-50 ml-1">%</span>\`;
+            efficiencyVal.innerHTML = `${percentScore}<span class="text-xl opacity-50 ml-1">%</span>`;
         }
     }
 }
@@ -427,9 +442,9 @@ function renderActiveTasksList() {
     if (!list) return;
 
     list.innerHTML = '';
-    
+
     const filteredTasks = tasks.filter(t => t.title.toLowerCase().includes(taskSearchQuery));
-    
+
     filteredTasks.sort((a, b) => {
         const aComp = !!a.completedAt;
         const bComp = !!b.completedAt;
@@ -438,59 +453,59 @@ function renderActiveTasksList() {
     });
 
     if (filteredTasks.length === 0) {
-        list.innerHTML = \`
+        list.innerHTML = `
             <div class="p-8 text-center text-slate-400 dark:text-slate-500 font-mono text-xs">
                 No active tasks found matching search criteria.
             </div>
-        \`;
+        `;
         return;
     }
 
     filteredTasks.forEach(task => {
         const item = document.createElement('div');
         const isCompleted = !!task.completedAt;
-        item.className = \`task-container group border-b border-slate-100 dark:border-slate-800/85 transition-all duration-300 \${isCompleted ? 'opacity-65 bg-slate-50/40 dark:bg-slate-900/10' : 'bg-white dark:bg-slate-950'}\`;
-        
-        let categoryBadge = \`<span class="px-2 py-0.5 border border-slate-400 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-mono text-[9px] font-bold tracking-wider uppercase select-none">\${task.type}</span>\`;
-        
-        let attachmentsBadge = task.attachmentUrl ? \`
+        item.className = `task-container group border-b border-slate-100 dark:border-slate-800/85 transition-all duration-300 \${isCompleted ? 'opacity-65 bg-slate-50/40 dark:bg-slate-900/10' : 'bg-white dark:bg-slate-950'}`;
+
+        let categoryBadge = `<span class="px-2 py-0.5 border border-slate-400 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-mono text-[9px] font-bold tracking-wider uppercase select-none">\${task.type}</span>`;
+
+        let attachmentsBadge = task.attachmentUrl ? `
             <span class="flex items-center gap-1 font-mono text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 select-none">
                 <span class="material-symbols-outlined text-[12px]">attachment</span> 1 Item
-            </span>\` : '';
+            </span>` : '';
 
-        let checkIcon = isCompleted ? \`
+        let checkIcon = isCompleted ? `
             <div class="w-5 h-5 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-950 flex items-center justify-center flex-shrink-0 cursor-pointer border border-slate-800 dark:border-slate-200 transition-colors">
                 <span class="material-symbols-outlined text-[12px] font-extrabold">check</span>
-            </div>\` : \`
-            <div class="w-5 h-5 border border-slate-400 dark:border-slate-500 flex-shrink-0 group-hover:border-primary dark:group-hover:border-sky-blue-dark transition-colors cursor-pointer bg-white dark:bg-slate-900"></div>\`;
+            </div>` : `
+            <div class="w-5 h-5 border border-slate-400 dark:border-slate-500 flex-shrink-0 group-hover:border-primary dark:group-hover:border-sky-blue-dark transition-colors cursor-pointer bg-white dark:bg-slate-900"></div>`;
 
         const sDate = new Date(task.startDate);
         const eDate = new Date(task.endDate);
-        const rangeText = \`\${sDate.toLocaleDateString()} (\${sDate.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}) to \${eDate.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}\`;
+        const rangeText = `${sDate.toLocaleDateString()} (\${sDate.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}) to \${eDate.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
 
-        item.innerHTML = \`
+        item.innerHTML = `
             <div class="p-5 md:p-6 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer task-click-info">
                 <div class="flex items-start gap-4 flex-1 min-w-0">
                     <div class="task-checkbox-wrapper mt-0.5 shrink-0">
-                        \${checkIcon}
+                        ${checkIcon}
                     </div>
                     <div class="space-y-1.5 min-w-0">
                         <h3 class="font-headline font-bold text-base text-slate-900 dark:text-white leading-tight \${isCompleted ? 'line-through text-slate-400 dark:text-slate-500 font-medium' : ''}">
-                            \${task.title}
+                            ${task.title}
                         </h3>
                         <div class="flex items-center gap-3 flex-wrap text-xs text-slate-500 dark:text-slate-400 font-mono text-[11px]">
                             <span class="flex items-center gap-1 select-none">
                                 <span class="material-symbols-outlined text-sm">schedule</span>
-                                \${rangeText}
+                                ${rangeText}
                             </span>
-                            \${attachmentsBadge}
+                            ${attachmentsBadge}
                         </div>
                     </div>
                 </div>
 
                 <div class="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
                     <div class="flex items-center gap-1.5 flex-wrap">
-                        \${categoryBadge}
+                        ${categoryBadge}
                     </div>
                     
                     <div class="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-4">
@@ -500,7 +515,7 @@ function renderActiveTasksList() {
                     </div>
                 </div>
             </div>
-        \`;
+        `;
 
         item.querySelector('.task-checkbox-wrapper').addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -510,7 +525,7 @@ function renderActiveTasksList() {
 
         item.querySelector('.task-delete-btn').addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (confirm(\`Delete task "\${task.title}"?\`)) {
+            if (confirm(`Delete task "${task.title}"?`)) {
                 await Store.deleteTask(task.id);
             }
         });
@@ -543,19 +558,19 @@ function renderCalendar() {
     hours.forEach(hour => {
         const labelCol = document.createElement('div');
         labelCol.className = 'h-20 border-b border-r border-slate-200 dark:border-slate-800 flex items-start justify-center pt-2 bg-white dark:bg-slate-900';
-        labelCol.innerHTML = \`<span class="font-label-sm text-[10px] text-slate-400 dark:text-slate-500">\${hour}</span>\`;
+        labelCol.innerHTML = `<span class="font-label-sm text-[10px] text-slate-400 dark:text-slate-500">${hour}</span>`;
         calendarGrid.appendChild(labelCol);
 
         dateMap.forEach((dayInfo) => {
             const cell = document.createElement('div');
             cell.className = 'h-20 border-b border-r border-slate-200 dark:border-slate-800 relative hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors bg-white dark:bg-slate-900';
-            
+
             const queryTimeStr = hourTo24String(hour);
 
             // Using local strings to match the fixed dates for demo
             const dayTasks = tasks.filter(t => {
                 const startObj = new Date(t.startDate);
-                const localDateStr = startObj.getFullYear() + '-' + String(startObj.getMonth()+1).padStart(2, '0') + '-' + String(startObj.getDate()).padStart(2, '0');
+                const localDateStr = startObj.getFullYear() + '-' + String(startObj.getMonth() + 1).padStart(2, '0') + '-' + String(startObj.getDate()).padStart(2, '0');
                 const localHourStr = String(startObj.getHours()).padStart(2, '0') + ':00';
                 return localDateStr === dayInfo.dateStr && localHourStr === queryTimeStr;
             });
@@ -565,30 +580,29 @@ function renderCalendar() {
                 const cardHeightPx = Math.max(72, (duration * 80) - 8);
 
                 const taskCard = document.createElement('div');
-                taskCard.style.height = \`\${cardHeightPx}px\`;
-                taskCard.className = \`absolute inset-x-1 top-1 p-2 text-xs border-l-4 shadow-sm z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform \${
-                    task.completedAt ? 'opacity-40 bg-slate-200 text-slate-800 border-slate-400 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600' :
-                    task.type === 'OFFICE' ? 'bg-slate-800 text-white border-primary dark:bg-slate-950 dark:border-sky-blue-dark' : 
-                    'bg-primary text-white border-slate-900 dark:bg-sky-blue-dark dark:text-slate-950 dark:border-white'
-                }\`;
-                
+                taskCard.style.height = `${cardHeightPx}px`;
+                taskCard.className = `absolute inset-x-1 top-1 p-2 text-xs border-l-4 shadow-sm z-20 overflow-hidden cursor-pointer active:scale-95 transition-transform ${task.completedAt ? 'opacity-40 bg-slate-200 text-slate-800 border-slate-400 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600' :
+                        task.type === 'OFFICE' ? 'bg-slate-800 text-white border-primary dark:bg-slate-950 dark:border-sky-blue-dark' :
+                            'bg-primary text-white border-slate-900 dark:bg-sky-blue-dark dark:text-slate-950 dark:border-white'
+                    }`;
+
                 let attachmentHtml = '';
                 if (task.attachmentUrl) {
                     if (task.attachmentUrl.match(/\.(jpeg|jpg|gif|png|webp|avif)/i)) {
-                        attachmentHtml = \`<img src="\${task.attachmentUrl}" class="w-full h-10 object-cover mt-1 opacity-80" />\`;
+                        attachmentHtml = `<img src="${task.attachmentUrl}" class="w-full h-10 object-cover mt-1 opacity-80" />`;
                     } else {
-                        attachmentHtml = \`<div class="text-[9px] mt-1 font-mono opacity-80 truncate"><span class="material-symbols-outlined text-[10px]">link</span> Attached</div>\`;
+                        attachmentHtml = `<div class="text-[9px] mt-1 font-mono opacity-80 truncate"><span class="material-symbols-outlined text-[10px]">link</span> Attached</div>`;
                     }
                 }
 
-                taskCard.innerHTML = \`
+                taskCard.innerHTML = `
                     <div class="h-full flex flex-col justify-between">
                         <div>
-                            <p class="font-bold truncate">\${task.title}</p>
-                            \${attachmentHtml}
+                            <p class="font-bold truncate">${task.title}</p>
+                            ${attachmentHtml}
                         </div>
                     </div>
-                \`;
+                `;
 
                 cell.appendChild(taskCard);
             });
@@ -627,19 +641,19 @@ function renderAnalyticsView() {
     if (!container) return;
 
     container.innerHTML = '';
-    
+
     habits.forEach(habit => {
         const item = document.createElement('div');
         item.className = "p-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-lg mb-4 p-4";
-        
+
         // Find recent completions for this week conceptually
-        item.innerHTML = \`
+        item.innerHTML = `
             <div class="flex-1 space-y-md">
                 <div class="flex items-center gap-md mb-2">
-                    <h3 class="font-headline-md text-lg font-bold text-slate-900 dark:text-white">\${habit.title}</h3>
-                    <span class="px-2 py-0.5 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs font-mono font-bold">\${habit.repeatableType}</span>
+                    <h3 class="font-headline-md text-lg font-bold text-slate-900 dark:text-white">${habit.title}</h3>
+                    <span class="px-2 py-0.5 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs font-mono font-bold">${habit.repeatableType}</span>
                 </div>
-                <div class="text-xs text-slate-500 font-mono">\${habit.logs ? habit.logs.length : 0} Total Check-ins</div>
+                <div class="text-xs text-slate-500 font-mono">${habit.logs ? habit.logs.length : 0} Total Check-ins</div>
             </div>
             
             <div class="flex items-center gap-2 border-l border-slate-200 dark:border-slate-800 pl-4">
@@ -647,10 +661,10 @@ function renderAnalyticsView() {
                     <span class="material-symbols-outlined">delete</span>
                 </button>
             </div>
-        \`;
+        `;
 
         item.querySelector('.habit-delete-btn').addEventListener('click', async () => {
-            if (confirm(\`Delete habit "\${habit.title}"?\`)) {
+            if (confirm(`Delete habit "${habit.title}"?`)) {
                 await Store.deleteHabit(habit.id);
             }
         });
