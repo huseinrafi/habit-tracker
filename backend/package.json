@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "dynamodb": "node start-dynamodb.js"
+    "dynamodb": "node start-dynamodb.js",
+    "seed": "node scripts/seed.js",
+    "local": "serverless offline start"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1063.0",
