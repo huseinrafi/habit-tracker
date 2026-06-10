@@ -1,175 +1,140 @@
-const { PrismaClient } = require('@prisma/client');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const crypto = require('crypto');
+const { PutCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { v4: uuidv4 } = require('uuid');
 
-const prisma = new PrismaClient();
-
-// ─── S3 Client ───────────────────────────────────────────────────────────────
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'ap-southeast-1',
-});
-const S3_BUCKET = process.env.S3_BUCKET_NAME || 'habit-tracker-attachments';
-
-// ─── Create Task ─────────────────────────────────────────────────────────────
 const createTask = async (req, res) => {
   try {
-    const { title, startDate, endDate, type, repeatableType, attachmentUrl } = req.body;
+    const { title, type, startDate, endDate, repeatableType, attachmentUrl } = req.body;
     const userId = req.user.userId;
 
-    // Validation: required fields
-    if (!title || !startDate || !endDate || !type) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Field title, startDate, endDate, dan type wajib diisi.',
-      });
+    if (!title || !type) {
+      return res.status(400).json({ status: 'error', message: 'Field title dan type wajib diisi.' });
     }
 
-    // Validation: date logic
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const taskId = uuidv4();
+    const now = new Date().toISOString();
+    const dynamodb = req.app.get('dynamodb');
+    const TABLES = req.app.get('TABLES');
 
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Format tanggal tidak valid. Gunakan format ISO 8601 (YYYY-MM-DD).',
-      });
-    }
-
-    if (end < start) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'endDate tidak boleh lebih awal dari startDate.',
-      });
-    }
-
-    const task = await prisma.task.create({
-      data: {
+    await dynamodb.send(new PutCommand({
+      TableName: TABLES.TASKS,
+      Item: {
         userId,
+        taskId,
         title,
-        startDate: start,
-        endDate: end,
         type,
+        startDate: startDate || now,
+        endDate: endDate || now,
         repeatableType: repeatableType || 'disable',
         attachmentUrl: attachmentUrl || null,
+        completedAt: null,
+        createdAt: now,
+        updatedAt: now,
       },
-    });
+    }));
 
-    return res.status(201).json({ status: 'success', data: task });
+    return res.status(201).json({
+      status: 'success',
+      data: { id: taskId, userId, taskId, title, type, startDate, endDate, repeatableType, attachmentUrl, completedAt: null, createdAt: now, updatedAt: now },
+    });
   } catch (error) {
     console.error('createTask error:', error);
     return res.status(500).json({ status: 'error', message: 'Gagal membuat task.' });
   }
 };
 
-// ─── Get All Tasks ───────────────────────────────────────────────────────────
 const getAllTasks = async (req, res) => {
   try {
     const userId = req.user.userId;
+    const dynamodb = req.app.get('dynamodb');
+    const TABLES = req.app.get('TABLES');
 
-    const tasks = await prisma.task.findMany({
-      where: { userId },
-      orderBy: { startDate: 'asc' },
-    });
+    const { Items } = await dynamodb.send(new QueryCommand({
+      TableName: TABLES.TASKS,
+      KeyConditionExpression: 'userId = :userId',
+      ExpressionAttributeValues: { ':userId': userId },
+      ScanIndexForward: true,
+    }));
 
-    return res.json({ status: 'success', data: tasks });
+    const data = (Items || []).map(item => ({ ...item, id: item.taskId }));
+    return res.json({ status: 'success', data });
   } catch (error) {
     console.error('getAllTasks error:', error);
     return res.status(500).json({ status: 'error', message: 'Gagal mengambil tasks.' });
   }
 };
 
-// ─── Update Task ─────────────────────────────────────────────────────────────
 const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-    const { title, startDate, endDate, type, repeatableType, attachmentUrl } = req.body;
+    const { title, type, startDate, endDate, repeatableType, attachmentUrl, completedAt } = req.body;
+    const dynamodb = req.app.get('dynamodb');
+    const TABLES = req.app.get('TABLES');
 
-    // Verify ownership
-    const existing = await prisma.task.findFirst({
-      where: { id, userId },
-    });
+    const { Item } = await dynamodb.send(new GetCommand({
+      TableName: TABLES.TASKS,
+      Key: { userId, taskId: id },
+    }));
 
-    if (!existing) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Task tidak ditemukan.',
-      });
+    if (!Item) {
+      return res.status(404).json({ status: 'error', message: 'Task tidak ditemukan.' });
     }
 
-    // Validate dates if provided
-    const start = startDate ? new Date(startDate) : undefined;
-    const end = endDate ? new Date(endDate) : undefined;
+    const updateExpr = [];
+    const exprAttrValues = {};
+    const exprAttrNames = {};
 
-    if (start && isNaN(start.getTime())) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Format startDate tidak valid.',
-      });
+    if (title !== undefined) { updateExpr.push('#title = :title'); exprAttrValues[':title'] = title; exprAttrNames['#title'] = 'title'; }
+    if (type !== undefined) { updateExpr.push('#type = :type'); exprAttrValues[':type'] = type; exprAttrNames['#type'] = 'type'; }
+    if (startDate !== undefined) { updateExpr.push('#startDate = :startDate'); exprAttrValues[':startDate'] = startDate; exprAttrNames['#startDate'] = 'startDate'; }
+    if (endDate !== undefined) { updateExpr.push('#endDate = :endDate'); exprAttrValues[':endDate'] = endDate; exprAttrNames['#endDate'] = 'endDate'; }
+    if (repeatableType !== undefined) { updateExpr.push('#repeatableType = :repeatableType'); exprAttrValues[':repeatableType'] = repeatableType; exprAttrNames['#repeatableType'] = 'repeatableType'; }
+    if (attachmentUrl !== undefined) { updateExpr.push('#attachmentUrl = :attachmentUrl'); exprAttrValues[':attachmentUrl'] = attachmentUrl; exprAttrNames['#attachmentUrl'] = 'attachmentUrl'; }
+    if (completedAt !== undefined) { updateExpr.push('#completedAt = :completedAt'); exprAttrValues[':completedAt'] = completedAt; exprAttrNames['#completedAt'] = 'completedAt'; }
+
+    if (updateExpr.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'Tidak ada field yang diupdate.' });
     }
 
-    if (end && isNaN(end.getTime())) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Format endDate tidak valid.',
-      });
-    }
+    exprAttrValues[':updatedAt'] = new Date().toISOString();
+    updateExpr.push('#updatedAt = :updatedAt');
+    exprAttrNames['#updatedAt'] = 'updatedAt';
 
-    // Cross-check dates (use existing values as fallback)
-    const finalStart = start || existing.startDate;
-    const finalEnd = end || existing.endDate;
+    await dynamodb.send(new UpdateCommand({
+      TableName: TABLES.TASKS,
+      Key: { userId, taskId: id },
+      UpdateExpression: `SET ${updateExpr.join(', ')}`,
+      ExpressionAttributeNames: exprAttrNames,
+      ExpressionAttributeValues: exprAttrValues,
+    }));
 
-    if (finalEnd < finalStart) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'endDate tidak boleh lebih awal dari startDate.',
-      });
-    }
-
-    // Build update data — only include fields that are provided
-    const updateData = {};
-    if (title !== undefined) updateData.title = title;
-    if (start) updateData.startDate = start;
-    if (end) updateData.endDate = end;
-    if (type !== undefined) updateData.type = type;
-    if (repeatableType !== undefined) updateData.repeatableType = repeatableType;
-    if (attachmentUrl !== undefined) updateData.attachmentUrl = attachmentUrl;
-    if (req.body.completedAt !== undefined) {
-      updateData.completedAt = req.body.completedAt ? new Date(req.body.completedAt) : null;
-    }
-
-    const task = await prisma.task.update({
-      where: { id },
-      data: updateData,
-    });
-
-    return res.json({ status: 'success', data: task });
+    return res.json({ status: 'success', message: 'Task berhasil diupdate.' });
   } catch (error) {
     console.error('updateTask error:', error);
     return res.status(500).json({ status: 'error', message: 'Gagal mengupdate task.' });
   }
 };
 
-// ─── Delete Task ─────────────────────────────────────────────────────────────
 const deleteTask = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
+    const dynamodb = req.app.get('dynamodb');
+    const TABLES = req.app.get('TABLES');
 
-    // Verify ownership
-    const existing = await prisma.task.findFirst({
-      where: { id, userId },
-    });
+    const { Item } = await dynamodb.send(new GetCommand({
+      TableName: TABLES.TASKS,
+      Key: { userId, taskId: id },
+    }));
 
-    if (!existing) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Task tidak ditemukan.',
-      });
+    if (!Item) {
+      return res.status(404).json({ status: 'error', message: 'Task tidak ditemukan.' });
     }
 
-    await prisma.task.delete({ where: { id } });
+    await dynamodb.send(new DeleteCommand({
+      TableName: TABLES.TASKS,
+      Key: { userId, taskId: id },
+    }));
 
     return res.json({ status: 'success', message: 'Task berhasil dihapus.' });
   } catch (error) {
@@ -178,52 +143,4 @@ const deleteTask = async (req, res) => {
   }
 };
 
-// ─── Get S3 Presigned URL ────────────────────────────────────────────────────
-const getPresignedUrl = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { fileName, fileType } = req.query;
-
-    if (!fileName || !fileType) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Query parameter fileName dan fileType wajib diisi.',
-      });
-    }
-
-    // Generate a unique key to prevent collisions
-    const uniqueId = crypto.randomUUID();
-    const ext = fileName.split('.').pop();
-    const key = `attachments/${userId}/${uniqueId}.${ext}`;
-
-    const command = new PutObjectCommand({
-      Bucket: S3_BUCKET,
-      Key: key,
-      ContentType: fileType,
-    });
-
-    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes
-
-    // The final public URL where the file will be accessible
-    const fileUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION || 'ap-southeast-1'}.amazonaws.com/${key}`;
-
-    return res.json({
-      status: 'success',
-      data: {
-        uploadUrl: presignedUrl,  // Frontend PUTs the file here
-        fileUrl,                  // Save this to the Task's attachmentUrl
-      },
-    });
-  } catch (error) {
-    console.error('getPresignedUrl error:', error);
-    return res.status(500).json({ status: 'error', message: 'Gagal membuat presigned URL.' });
-  }
-};
-
-module.exports = {
-  createTask,
-  getAllTasks,
-  updateTask,
-  deleteTask,
-  getPresignedUrl,
-};
+module.exports = { createTask, getAllTasks, updateTask, deleteTask };

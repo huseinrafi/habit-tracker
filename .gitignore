@@ -1,16 +1,38 @@
-```
 # Dependencies
 node_modules/
 
-# Database files
+# Environment
+.env
+.env.local
+
+# Database
+*.db
 *.db-shm
 *.db-wal
+data/
 
-# Package lock file
-package-lock.json
+# Build outputs
+dist/
+.next/
+build/
 
-implementation_plan.md
-Planning.md
+# OS
+.DS_Store
+Thumbs.db
 
-.env
-```
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Serverless
+.serverless/
+.serverless_next-build/
+
+# Deploy artifacts
+deployment-package.zip

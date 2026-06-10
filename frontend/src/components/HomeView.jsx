@@ -58,7 +58,7 @@ export default function HomeView() {
                           return (
                             <div 
                               key={idx} 
-                              onClick={() => checkHabit(habit.habitId, day.toISOString())}
+                              onClick={() => checkHabit(habit.habitId, format(day, 'yyyy-MM-dd'))}
                               className={`flex-1 aspect-square border cursor-pointer transition-colors flex flex-col items-center justify-center 
                                 ${isToday ? 'border-primary dark:border-sky-blue-dark border-2' : 'border-slate-200 dark:border-slate-700'} 
                                 hover:bg-primary/20`}

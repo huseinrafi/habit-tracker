@@ -6,15 +6,10 @@ const {
   getAllTasks,
   updateTask,
   deleteTask,
-  getPresignedUrl,
 } = require('../controllers/taskController');
 
 // All task routes require authentication
 router.use(authenticate);
-
-// GET  /api/tasks/presigned-url  → S3 presigned URL for direct upload
-// Must be defined BEFORE /:id to avoid route conflict
-router.get('/presigned-url', getPresignedUrl);
 
 // POST   /api/tasks       → Create a new task
 router.post('/', createTask);

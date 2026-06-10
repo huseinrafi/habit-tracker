@@ -1,83 +1,120 @@
 # Habit & Task Tracker
 
-Sebuah aplikasi pelacakan kebiasaan (habit) dan manajemen tugas (task) harian dengan desain modern yang interaktif. Aplikasi ini dibangun dengan memisahkan sisi *Frontend* dan *Backend* secara profesional, serta dirancang khusus agar siap untuk dideploy (diunggah) ke infrastruktur berbasis serverless di **AWS Lambda**.
+Aplikasi pelacakan kebiasaan (habit) dan manajemen tugas (task) harian. Backend serverless di AWS Lambda + DynamoDB, frontend React + Vite di S3.
 
-## 🛠 Teknologi yang Digunakan
+## 🛠 Tech Stack
 
-Aplikasi ini menggunakan stack teknologi modern berikut:
+**Frontend:** React 19, Vite 8, Zustand, TailwindCSS (CDN), date-fns
 
-**Frontend:**
-- **Framework:** React.js (menggunakan Vite untuk *build tool* yang lebih cepat)
-- **Styling:** TailwindCSS (untuk desain utilitas yang cepat dan *custom*)
-- **State Management:** Zustand (untuk manajemen state global yang ringan)
-- **Utilities:** `date-fns` untuk pengolahan tanggal yang kompleks di kalender.
+**Backend:** Node.js 20, Express, DynamoDB, AWS SDK v3, S3 (presigned URL)
 
-**Backend:**
-- **Framework:** Node.js dengan Express.js
-- **Database ORM:** Prisma ORM (mendukung skema relasional yang aman & cepat)
-- **Serverless Adapter:** `serverless-http` (untuk menjalankan aplikasi Express.js di dalam AWS Lambda)
-- **Cloud Service Integrations:** S3 AWS SDK (untuk penyimpanan *attachment* tugas)
+**Infrastructure:** AWS Lambda, API Gateway HTTP API, DynamoDB (PAY_PER_REQUEST), S3 Static Website
 
 ---
 
-## 🚀 Panduan Menjalankan Secara Lokal (Local Testing)
+## 📁 Struktur Proyek
 
-Anda dapat menjalankan kedua server secara bersamaan secara lokal di komputer Anda. Pastikan Anda memiliki Node.js terinstal.
-
-### 1. Menjalankan Backend
-Backend berjalan sebagai serverless API lokal menggunakan *plugin* `serverless-offline`.
-1. Buka terminal baru dan masuk ke folder `backend`:
-   ```bash
-   cd backend
-   ```
-2. Pastikan file `.env` sudah diatur dengan konfigurasi database yang benar (`DATABASE_URL`).
-3. Jalankan server backend:
-   ```bash
-   NODE_ENV=development npx serverless offline
-   ```
-   *Secara default, ini akan berjalan di `http://localhost:3001`.*
-
-### 2. Menjalankan Frontend
-Frontend dibangun dengan Vite.
-1. Buka terminal baru (biarkan terminal backend tetap menyala) dan masuk ke folder `frontend`:
-   ```bash
-   cd frontend
-   ```
-2. Mulai *development server* Vite:
-   ```bash
-   npm run dev
-   ```
-   *Secara default, ini akan terbuka di `http://localhost:5173`.*
-3. Buka URL tersebut di browser Anda untuk mulai bereksperimen!
+```
+habit-tracker/
+├── frontend/          # React + Vite (S3 Static Hosting)
+│   ├── src/
+│   │   ├── api/       # API client (Axios)
+│   │   ├── components/ # React components
+│   │   └── store/     # Zustand state
+│   └── ...
+├── backend/           # Express + DynamoDB (Lambda)
+│   ├── src/
+│   │   ├── controllers/ # Route handlers
+│   │   ├── lib/         # DynamoDB & S3 clients
+│   │   ├── middlewares/  # JWT auth
+│   │   └── routes/      # Express routes
+│   └── ...
+├── DEPLOY_BACKEND.md  # Deploy dengan Serverless Framework
+├── DEPLOY_MANUAL.md   # Deploy manual tanpa Serverless
+└── README.md
+```
 
 ---
 
-## ☁️ Panduan Deploy ke AWS Lambda
+## 🚀 Local Development
 
-Proses publikasi aplikasi ini ke internet dibuat semudah mungkin menggunakan **Serverless Framework**. Pastikan Anda sudah memiliki akun AWS dan telah mengonfigurasi AWS CLI (`aws configure`) dengan *Access Key* dan *Secret Key* yang valid.
+### Prasyarat
+- Node.js 20+
+- Docker (untuk DynamoDB Local)
+- AWS CLI (terkonfigurasi)
 
-### Langkah-Langkah Deploy Backend:
+### 1. Setup DynamoDB Local
 
-1. Masuk ke folder backend:
-   ```bash
-   cd backend
-   ```
-2. *(Opsional)* Jika Anda menggunakan S3 bucket untuk upload file, pastikan nama S3 Bucket di `serverless.yml` dan `.env` AWS Anda sudah di-set sesuai.
-3. Jalankan perintah deploy Serverless:
-   ```bash
-   npx serverless deploy --stage prod
-   ```
-4. Serverless akan otomatis "membungkus" seluruh kode aplikasi Anda, mengunggahnya ke AWS S3 untuk staging, dan membuatkan AWS Lambda beserta API Gateway secara otomatis.
-5. Setelah berhasil, Anda akan menerima link **Endpoint URL** dari API Gateway di terminal Anda. 
+```bash
+docker run -d --name dynamodb-local -p 8000:8000 amazon/dynamodb-local
+cd backend
+npm run seed        # Buat tabel-tabel DynamoDB
+```
 
-### Langkah-Langkah Deploy Frontend:
+### 2. Jalankan Backend
 
-1. Di folder `frontend`, ubah koneksi API URL Anda. Buka file `.env` di dalam folder frontend (atau buat jika belum ada) dan ubah endpoint base URL:
-   ```env
-   VITE_API_URL="<URL_API_GATEWAY_ANDA>/api"
-   ```
-2. Build aplikasi Vite:
-   ```bash
-   npm run build
-   ```
-3. Folder `dist` akan digenerate. Anda dapat mengunggah (deploy) folder `dist` tersebut ke layanan hosting statis apa pun seperti **AWS S3 Static Hosting**, **Vercel**, **Netlify**, atau **GitHub Pages**.
+```bash
+cd backend
+npm start           # serverless-offline di http://localhost:3001
+```
+
+### 3. Jalankan Frontend
+
+```bash
+cd frontend
+npm run dev         # Vite dev server di http://localhost:5173
+```
+
+> **Catatan:** File upload tidak berfungsi di lokal tanpa mock S3. Deploy ke AWS untuk upload penuh.
+
+---
+
+## ☁️ Deployment
+
+Pilih metode deploy sesuai kebutuhan:
+
+| Dokumen | Metode | Cocok Untuk |
+|---------|--------|-------------|
+| [DEPLOY_BACKEND.md](./DEPLOY_BACKEND.md) | Serverless Framework | ✅ Cepat, 1 perintah |
+| [DEPLOY_MANUAL.md](./DEPLOY_MANUAL.md) | Manual via AWS CLI / Console | Kontrol penuh, kebijakan ketat |
+
+**Keduanya mendeploy:**
+- Lambda function (backend Express)
+- API Gateway HTTP API
+- 4 tabel DynamoDB
+- 2 bucket S3 (web hosting + attachments)
+- IAM role & policies
+
+---
+
+## 📡 API Endpoints
+
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/health` | Health check |
+| GET | `/api/upload-url` | Generate presigned S3 URL |
+| **Tasks** | | |
+| GET | `/api/tasks` | Ambil semua tasks |
+| POST | `/api/tasks` | Buat task baru |
+| PUT | `/api/tasks/:id` | Update task |
+| DELETE | `/api/tasks/:id` | Hapus task |
+| **Habits** | | |
+| GET | `/api/habits` | Ambil semua habits + logs |
+| POST | `/api/habits` | Buat habit baru |
+| DELETE | `/api/habits/:id` | Hapus habit |
+| POST | `/api/habits/:id/check` | Check-in hari ini |
+| POST | `/api/habits/:id/log` | Log completion (toggle) |
+| **Dashboard** | | |
+| GET | `/api/dashboard/streak` | Streak data |
+| GET | `/api/dashboard/analytics` | Weekly analytics |
+
+---
+
+## 🗄️ DynamoDB Schema
+
+| Table | PK | SK | GSI |
+|-------|----|----|-----|
+| `HabitTracker_Users` | `userId` | — | `email-index` |
+| `HabitTracker_Tasks` | `userId` | `taskId` | — |
+| `HabitTracker_Habits` | `userId` | `habitId` | — |
+| `HabitTracker_Logs` | `habitId` | `dateCompleted#logId` | `userId-date-index` |
