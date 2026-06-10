@@ -1,11 +1,24 @@
 import { create } from 'zustand';
 import { ApiClient } from '../api/api';
 
+function getErrorMessage(err) {
+  const data = err?.response?.data;
+  if (data?.message) return data.message;
+  if (data?.error) return data.error;
+  if (typeof data === 'string') return data;
+  return err?.message || 'An unexpected error occurred';
+}
+
 export const useStore = create((set, get) => ({
   theme: localStorage.getItem('tasktracker_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
   activeTab: 'home',
   sidebarCollapsed: localStorage.getItem('tasktracker_sidebar_collapsed') === 'true',
   
+  user: null,
+  authLoading: false,
+  authPage: 'login',
+  authChecked: false,
+
   tasks: [],
   habits: [],
   streakData: null,
@@ -31,6 +44,66 @@ export const useStore = create((set, get) => ({
     set({ sidebarCollapsed: isCollapsed });
   },
 
+  setAuthPage: (page) => set({ authPage: page }),
+
+  checkAuth: async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      set({ user: null, authChecked: true });
+      return;
+    }
+    try {
+      const res = await ApiClient.getProfile();
+      set({ user: res.user, authChecked: true });
+      return res.user;
+    } catch (err) {
+      localStorage.removeItem('auth_token');
+      set({ user: null, authChecked: true });
+    }
+  },
+
+  login: async (email, password) => {
+    set({ authLoading: true });
+    try {
+      const res = await ApiClient.login(email, password);
+      localStorage.setItem('auth_token', res.token);
+      set({ user: res.user, authLoading: false, authPage: null });
+      get().fetchAllData();
+      return res;
+    } catch (e) {
+      set({ authLoading: false });
+      throw e;
+    }
+  },
+
+  register: async (name, email, password) => {
+    set({ authLoading: true });
+    try {
+      const res = await ApiClient.register(name, email, password);
+      localStorage.setItem('auth_token', res.token);
+      set({ user: res.user, authLoading: false, authPage: null });
+      get().fetchAllData();
+      return res;
+    } catch (e) {
+      set({ authLoading: false });
+      throw e;
+    }
+  },
+
+  logout: () => {
+    localStorage.removeItem('auth_token');
+    set({
+      user: null,
+      activeTab: 'home',
+      authPage: 'login',
+      tasks: [],
+      habits: [],
+      streakData: null,
+      analyticsData: null,
+      apiOnline: false,
+    });
+  },
+
   checkHealth: async () => {
     try {
       await ApiClient.healthCheck();
@@ -39,6 +112,8 @@ export const useStore = create((set, get) => ({
       set({ apiOnline: false });
     }
   },
+
+  getErrorMessage,
 
   fetchAllData: async () => {
     try {
