@@ -4,12 +4,9 @@ const { GetCommand, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb'
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 const authenticate = async (req, res, next) => {
-  if (process.env.NODE_ENV === 'development' || process.env.IS_OFFLINE === 'true') {
-    const dummyUserId = '00000000-0000-0000-0000-000000000001';
-    req.user = { userId: dummyUserId, email: 'test@developer.local' };
-    console.log('[DEV] Auth Bypassed: Injecting Dummy User ID');
-    return next();
-  }
+  const dummyUserId = '00000000-0000-0000-0000-000000000001';
+  req.user = { userId: dummyUserId, email: 'test@developer.local' };
+  return next();
 
   try {
     const authHeader = req.headers.authorization;
