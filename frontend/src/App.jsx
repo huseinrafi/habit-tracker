@@ -1,31 +1,65 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Amplify } from 'aws-amplify';
 import { useStore } from './store/store';
 import HomeView from './components/HomeView';
 import CalendarView from './components/CalendarView';
 import AnalyticsView from './components/AnalyticsView';
 import SettingsView from './components/SettingsView';
 import TaskModal from './components/TaskModal';
+import LoginPage from './components/LoginPage';
+import RegisterPage from './components/RegisterPage';
 
-// We will inline the views here for simplicity during migration,
-// but they should be separated later.
+Amplify.configure({
+  Auth: {
+    Cognito: {
+      userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
+      userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
+    },
+  },
+});
 
 export default function App() {
-  const { 
-    theme, setTheme, activeTab, setActiveTab, 
-    sidebarCollapsed, toggleSidebar, apiOnline, checkHealth, fetchAllData 
+  const {
+    theme, setTheme, activeTab, setActiveTab,
+    sidebarCollapsed, toggleSidebar, apiOnline, checkHealth, fetchAllData,
+    isAuthenticated, authLoading, initializeAuth, logout, user
   } = useStore();
 
+  const [showRegister, setShowRegister] = useState(false);
+
   useEffect(() => {
-    // Initialization
     setTheme(theme);
-    checkHealth();
-    fetchAllData();
+    initializeAuth();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      checkHealth();
+      fetchAllData();
+    }
+  }, [isAuthenticated]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 font-mono text-xs text-slate-500">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    if (showRegister) {
+      return <RegisterPage onSwitchToLogin={() => setShowRegister(false)} />;
+    }
+    return <LoginPage onSwitchToRegister={() => setShowRegister(true)} />;
+  }
 
   return (
     <div className={`bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-50 min-h-screen transition-colors duration-200 ${sidebarCollapsed ? 'sidebar-collapsed main-collapsed header-collapsed' : ''}`}>
-      
-      {/* Sidebar Navigation */}
+
       <aside id="app-sidebar" className={`flex flex-col h-full bg-slate-800 dark:bg-slate-950 overflow-y-auto w-64 fixed left-0 top-0 rounded-none border-r border-slate-700 dark:border-slate-800 z-50 ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
           <div className="p-6 flex items-center justify-between gap-2 border-b border-slate-700 dark:border-slate-800">
               <div className="min-w-0" onClick={() => setActiveTab('home')} style={{cursor: 'pointer'}}>
@@ -52,7 +86,6 @@ export default function App() {
           </div>
       </aside>
 
-      {/* Top Navigation Bar */}
       <header id="app-header" className={`flex justify-between items-center bg-white dark:bg-slate-900 fixed top-0 right-0 z-40 border-b border-slate-200 dark:border-slate-800 h-16 shrink-0 transition-colors duration-200 px-8 py-3 ${sidebarCollapsed ? 'header-collapsed' : ''}`} style={{left: sidebarCollapsed ? '80px' : '256px'}}>
           <div className="flex items-center gap-6">
               <span className="font-headline text-xl font-extrabold text-slate-900 dark:text-white">Dashboard</span>
@@ -66,28 +99,27 @@ export default function App() {
                  </div>
               )}
           </div>
-
           <div className="flex items-center gap-6">
               <div className="flex items-center gap-3 border border-slate-200 dark:border-slate-700 px-3 py-1 bg-white dark:bg-slate-800 select-none">
                   <span className="material-symbols-outlined text-slate-400 text-sm">groups</span>
                   <span className="font-mono text-xs text-slate-600 dark:text-slate-300">Team Space</span>
               </div>
-
               <div className="flex items-center gap-4">
                   <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} className="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-sky-blue-dark transition-colors active:opacity-80">
                       <span className="material-symbols-outlined">{theme === 'dark' ? 'light_mode' : 'dark_mode'}</span>
                   </button>
+                  <button onClick={logout} className="text-slate-600 dark:text-slate-300 hover:text-red-500 transition-colors" title="Sign Out">
+                      <span className="material-symbols-outlined">logout</span>
+                  </button>
               </div>
-
               <div className="flex items-center gap-3 border-l border-slate-200 dark:border-slate-700 pl-6">
                   <div className="text-right hidden sm:block">
-                      <p className="font-mono text-sm font-bold text-slate-900 dark:text-white">Developer</p>
+                      <p className="font-mono text-sm font-bold text-slate-900 dark:text-white">{user?.email || 'User'}</p>
                   </div>
               </div>
           </div>
       </header>
 
-      {/* Main Content Area */}
       <main id="app-main" className="pt-20 p-8 min-h-screen bg-slate-100 dark:bg-slate-900 transition-colors duration-200" style={{marginLeft: sidebarCollapsed ? '80px' : '256px'}}>
           <div className="max-w-[1400px] mx-auto">
               {activeTab === 'home' && <HomeView />}
@@ -106,7 +138,7 @@ function NavItem({ tab, icon, label, activeTab, onClick, collapsed }) {
   const isActive = activeTab === tab;
   const activeClass = "bg-primary text-white border-l-4 border-white active:bg-primary-container";
   const inactiveClass = "text-slate-400 hover:text-white hover:bg-slate-700 dark:hover:bg-slate-800";
-  
+
   return (
     <a href="#" onClick={(e) => { e.preventDefault(); onClick(); }} className={`px-4 py-3 flex items-center gap-3 transition-all duration-150 ${isActive ? activeClass : inactiveClass} ${collapsed ? 'justify-center' : ''}`}>
         <span className="material-symbols-outlined">{icon}</span>

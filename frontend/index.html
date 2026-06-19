@@ -6,9 +6,6 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>TaskTracker & Habit Board | System Dashboard</title>
 
-    <!-- Tailwind CSS with Forms and Container Queries Plugins -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-
     <!-- Styles & Fonts Imports -->
     <link
         href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
@@ -16,49 +13,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
-
-    <!-- Custom Tailwind Configuration -->
-    <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        // Light theme colors mapped from user tokens
-                        slate: {
-                            50: "#f8fafc",
-                            100: "#f1f5f9",
-                            200: "#e2e8f0",
-                            300: "#cbd5e1",
-                            400: "#94a3b8",
-                            600: "#475569",
-                            700: "#334155",
-                            800: "#1e293b",
-                            900: "#0f172a",
-                        },
-                        primary: "#2563eb", // Accent primary Light
-                        success: "#16a34a", // Accent success Light
-                        error: "#ef4444",
-
-                        // Dark theme custom color mappings for use in utilities
-                        "sky-blue-dark": "#38bdf8",
-                        "neon-green-dark": "#4ade80"
-                    },
-                    borderRadius: {
-                        DEFAULT: "0px",
-                        lg: "0px",
-                        xl: "0px",
-                        full: "9999px"
-                    },
-                    fontFamily: {
-                        headline: ["Plus Jakarta Sans", "sans-serif"],
-                        body: ["Plus Jakarta Sans", "sans-serif"],
-                        mono: ["JetBrains Mono", "monospace"]
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-50 min-h-screen transition-colors duration-200">
     <div id="root"></div>

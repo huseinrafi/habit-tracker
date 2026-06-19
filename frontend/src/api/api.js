@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { fetchAuthSession } from 'aws-amplify/auth';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -10,10 +11,15 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (e) {
+      // Not authenticated - token not available
     }
     return config;
   },
@@ -40,16 +46,28 @@ export const ApiClient = {
   getStreak: () => api.get('/dashboard/streak').then((res) => res.data),
   getAnalytics: () => api.get('/dashboard/analytics').then((res) => res.data),
 
-  // Upload (Presigned URL — 2-step)
+  // Profile
+  getProfile: () => api.get('/profile').then((res) => res.data),
+
+  // Upload file via API proxy (base64)
   uploadFile: async (file) => {
-    const { uploadUrl, fileKey } = await api.get('/upload-url', {
-      params: { fileName: file.name, contentType: file.type },
+    const reader = new FileReader();
+    const base64Promise = new Promise((resolve, reject) => {
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+    reader.readAsDataURL(file);
+    const fileBase64 = await base64Promise;
+
+    const { url, fileKey } = await api.post('/upload', {
+      fileName: file.name,
+      contentType: file.type,
+      fileBase64,
     }).then((res) => res.data);
 
-    await axios.put(uploadUrl, file, {
-      headers: { 'Content-Type': file.type },
-    });
-
-    return { url: `${BASE_URL.replace('/api', '')}/uploads/${fileKey}`, fileKey };
+    return { url, fileKey };
   },
 };

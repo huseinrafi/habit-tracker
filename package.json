@@ -1,4 +1,10 @@
 {
+  "scripts": {
+    "configure": "bash scripts/configure-frontend.sh",
+    "deploy:backend": "cd backend && npx serverless deploy --stage prod",
+    "deploy:frontend": "cd frontend && npm run build && aws s3 sync dist/ s3://habit-tracker-web-$(aws sts get-caller-identity --query Account --output text)-prod/ --delete",
+    "deploy:all": "npm run deploy:backend && npm run configure && npm run deploy:frontend"
+  },
   "devDependencies": {
     "serverless-offline": "^14.7.1"
   }

@@ -1,16 +1,57 @@
 import { create } from 'zustand';
 import { ApiClient } from '../api/api';
+import { signIn, signUp, signOut, getCurrentUser } from 'aws-amplify/auth';
 
 export const useStore = create((set, get) => ({
   theme: localStorage.getItem('tasktracker_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
   activeTab: 'home',
   sidebarCollapsed: localStorage.getItem('tasktracker_sidebar_collapsed') === 'true',
-  
+
   tasks: [],
   habits: [],
   streakData: null,
   analyticsData: null,
   apiOnline: false,
+
+  // Auth state
+  isAuthenticated: false,
+  user: null,
+  authLoading: true,
+
+  initializeAuth: async () => {
+    try {
+      const user = await getCurrentUser();
+      set({ isAuthenticated: true, user: { userId: user.userId, email: user.signInDetails?.loginId || '' }, authLoading: false });
+    } catch {
+      set({ isAuthenticated: false, user: null, authLoading: false });
+    }
+  },
+
+  login: async (email, password) => {
+    const result = await signIn({ username: email, password });
+    if (result.isSignedIn) {
+      const user = await getCurrentUser();
+      set({ isAuthenticated: true, user: { userId: user.userId, email: user.signInDetails?.loginId || email } });
+      get().fetchAllData();
+    } else {
+      throw new Error('Sign in incomplete');
+    }
+  },
+
+  register: async (email, password, name) => {
+    await signUp({
+      username: email,
+      password,
+      options: { userAttributes: { name } },
+    });
+    // Auto-confirm via PreSignUp trigger, so immediately sign in
+    await get().login(email, password);
+  },
+
+  logout: async () => {
+    await signOut();
+    set({ isAuthenticated: false, user: null, tasks: [], habits: [], streakData: null, analyticsData: null });
+  },
 
   setTheme: (theme) => {
     localStorage.setItem('tasktracker_theme', theme);
