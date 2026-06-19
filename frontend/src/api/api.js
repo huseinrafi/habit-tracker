@@ -23,6 +23,11 @@ api.interceptors.request.use(
 export const ApiClient = {
   healthCheck: () => api.get('/health-check').then((res) => res.data),
 
+  // Auth
+  login: (email, password) => api.post('/auth/login', { email, password }).then((res) => res.data),
+  register: (name, email, password) => api.post('/auth/register', { name, email, password }).then((res) => res.data),
+  getProfile: () => api.get('/auth/profile').then((res) => res.data),
+
   // Tasks
   getTasks: () => api.get('/tasks').then((res) => res.data),
   createTask: (data) => api.post('/tasks', data).then((res) => res.data),

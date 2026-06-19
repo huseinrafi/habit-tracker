@@ -5,22 +5,39 @@ import CalendarView from './components/CalendarView';
 import AnalyticsView from './components/AnalyticsView';
 import SettingsView from './components/SettingsView';
 import TaskModal from './components/TaskModal';
-
-// We will inline the views here for simplicity during migration,
-// but they should be separated later.
+import LoginView from './components/LoginView';
+import RegisterView from './components/RegisterView';
 
 export default function App() {
   const { 
     theme, setTheme, activeTab, setActiveTab, 
-    sidebarCollapsed, toggleSidebar, apiOnline, checkHealth, fetchAllData 
+    sidebarCollapsed, toggleSidebar, apiOnline, checkHealth, fetchAllData,
+    user, authChecked, authPage, checkAuth, logout
   } = useStore();
 
   useEffect(() => {
-    // Initialization
     setTheme(theme);
+    checkAuth();
     checkHealth();
-    fetchAllData();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchAllData();
+    }
+  }, [user]);
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-900 flex items-center justify-center">
+        <div className="animate-pulse font-mono text-sm text-slate-400">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return authPage === 'register' ? <RegisterView /> : <LoginView />;
+  }
 
   return (
     <div className={`bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-50 min-h-screen transition-colors duration-200 ${sidebarCollapsed ? 'sidebar-collapsed main-collapsed header-collapsed' : ''}`}>
@@ -81,8 +98,15 @@ export default function App() {
 
               <div className="flex items-center gap-3 border-l border-slate-200 dark:border-slate-700 pl-6">
                   <div className="text-right hidden sm:block">
-                      <p className="font-mono text-sm font-bold text-slate-900 dark:text-white">Developer</p>
+                      <p className="font-mono text-sm font-bold text-slate-900 dark:text-white">{user?.name || 'User'}</p>
                   </div>
+                  <button
+                    onClick={logout}
+                    className="text-slate-400 hover:text-error transition-colors"
+                    title="Sign Out"
+                  >
+                    <span className="material-symbols-outlined">logout</span>
+                  </button>
               </div>
           </div>
       </header>

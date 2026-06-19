@@ -1,13 +1,8 @@
 const jwt = require('jsonwebtoken');
-const { GetCommand, PutCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 const authenticate = async (req, res, next) => {
-  const dummyUserId = '00000000-0000-0000-0000-000000000001';
-  req.user = { userId: dummyUserId, email: 'test@developer.local' };
-  return next();
-
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {

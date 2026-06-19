@@ -29,10 +29,12 @@ app.set('ATTACHMENTS_BUCKET', ATTACHMENTS_BUCKET);
 const tasksRouter = require('./routes/tasks');
 const habitsRouter = require('./routes/habits');
 const dashboardRouter = require('./routes/dashboard');
+const authRouter = require('./routes/auth');
 
 app.use('/api/tasks', tasksRouter);
 app.use('/api/habits', habitsRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/auth', authRouter);
 
 app.get('/api/upload-url', async (req, res) => {
   try {
