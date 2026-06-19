@@ -2,23 +2,19 @@ service: habit-tracker-backend
 
 provider:
   name: aws
-  runtime: nodejs22.x
+  runtime: nodejs20.x
   stage: ${opt:stage, 'dev'}
-  region: us-east-1
+  region: ${opt:region, 'ap-southeast-1'}
   memorySize: 512
-  timeout: 29
-  environment:
-    NODE_ENV: ${self:provider.stage}
-    # AWS_REGION is automatically provided by Lambda runtime
-    USERS_TABLE: HabitTracker_Users
-    TASKS_TABLE: HabitTracker_Tasks
-    HABITS_TABLE: HabitTracker_Habits
-    HABIT_LOGS_TABLE: HabitTracker_Logs
-    ATTACHMENTS_BUCKET: !Sub habit-tracker-attachments-${AWS::AccountId}-${self:provider.stage}
+  timeout: 29  # API Gateway max is 29s
+  
+  # 1. AKTIFKAN CORS GLOBAL UNTUK httpApi DI SINI
   httpApi:
     cors:
       allowedOrigins:
-        - '*'
+        - http://localhost:5173
+        - http://localhost:5174
+        - http://192.168.1.160:5174  # Mengizinkan IP LAN Anda yang ada di log
       allowedHeaders:
         - Content-Type
         - Authorization
@@ -27,326 +23,46 @@ provider:
         - POST
         - PUT
         - DELETE
-      allowCredentials: false
-  iam:
-    role: arn:aws:iam::613872019542:role/LabRole
+        - OPTIONS
+      allowCredentials: true
+    binaryMediaTypes:
+      - '*/*'
+      - 'image/*'
+      - 'multipart/form-data'
 
+  environment:
+    NODE_ENV: ${self:provider.stage}
+    # 2. JIKA MENGGUNAKAN DYNAMODB, SERINGKALI ANDA BUTUH NAMA TABEL SEBAGAI ENV
+    # HABITS_TABLE: habit-tracker-habits-${self:provider.stage}
+    # USERS_TABLE: habit-tracker-users-${self:provider.stage}
+
+# ─── Packaging ──────────────────────────────────────────────────────────────
 package:
-  individually: false
+  individually: true
   patterns:
-    - '!prisma/**'
-    - '!data/**'
-    - '!public/**'
-    - '!scripts/**'
+    - '!node_modules/.prisma/client/libquery_engine-*'
+    - 'node_modules/.prisma/client/libquery_engine-rhel-*'  # Lambda runtime engine
+    - '!node_modules/prisma/libquery_engine-*'
+    - '!node_modules/@prisma/engines/**'
     - '!test/**'
+    - '!data/**'
     - '!.git/**'
 
 functions:
-  autoConfirmUser:
-    handler: src/handlers/autoConfirmUser.handler
-
-  createTask: &withCognito
-    handler: src/handlers.createTask
-    environment: &cognitoEnv
-      COGNITO_USER_POOL_ID: !Ref CognitoUserPool
-      COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
+  api:
+    handler: src/app.handler
     events:
       - httpApi:
-          path: /api/tasks
-          method: POST
-  getAllTasks:
-    <<: *withCognito
-    handler: src/handlers.getAllTasks
-    events:
+          path: /{proxy+}
+          method: '*'
       - httpApi:
-          path: /api/tasks
-          method: GET
-  updateTask:
-    <<: *withCognito
-    handler: src/handlers.updateTask
-    events:
-      - httpApi:
-          path: /api/tasks/{id}
-          method: PUT
-  deleteTask:
-    <<: *withCognito
-    handler: src/handlers.deleteTask
-    events:
-      - httpApi:
-          path: /api/tasks/{id}
-          method: DELETE
-
-  createHabit:
-    <<: *withCognito
-    handler: src/handlers.createHabit
-    events:
-      - httpApi:
-          path: /api/habits
-          method: POST
-  getAllHabits:
-    <<: *withCognito
-    handler: src/handlers.getAllHabits
-    events:
-      - httpApi:
-          path: /api/habits
-          method: GET
-  deleteHabit:
-    <<: *withCognito
-    handler: src/handlers.deleteHabit
-    events:
-      - httpApi:
-          path: /api/habits/{id}
-          method: DELETE
-  checkHabit:
-    <<: *withCognito
-    handler: src/handlers.checkHabit
-    events:
-      - httpApi:
-          path: /api/habits/{id}/check
-          method: POST
-  logHabitCompletion:
-    <<: *withCognito
-    handler: src/handlers.logHabitCompletion
-    events:
-      - httpApi:
-          path: /api/habits/{id}/log
-          method: POST
-
-  getStreak:
-    <<: *withCognito
-    handler: src/handlers.getStreak
-    events:
-      - httpApi:
-          path: /api/dashboard/streak
-          method: GET
-  getAnalytics:
-    <<: *withCognito
-    handler: src/handlers.getAnalytics
-    events:
-      - httpApi:
-          path: /api/dashboard/analytics
-          method: GET
-
-  getProfile:
-    <<: *withCognito
-    handler: src/handlers.getProfile
-    events:
-      - httpApi:
-          path: /api/profile
-          method: GET
-
-  getUploadUrl:
-    <<: *withCognito
-    handler: src/handlers.getUploadUrl
-    events:
-      - httpApi:
-          path: /api/upload-url
-          method: GET
-  uploadFile:
-    <<: *withCognito
-    handler: src/handlers.uploadFile
-    events:
-      - httpApi:
-          path: /api/upload
-          method: POST
-
-  health:
-    <<: *withCognito
-    handler: src/handlers.health
-    events:
-      - httpApi:
-          path: /api/health
-          method: GET
-  healthCheck:
-    <<: *withCognito
-    handler: src/handlers.healthCheck
-    events:
-      - httpApi:
-          path: /api/health-check
-          method: GET
+          path: /
+          method: '*'
 
 plugins:
-  - serverless-offline
+  - serverless-offline  # for local development
 
 custom:
   serverless-offline:
-    httpPort: 3001
-    noPrependStageInUrl: true
-
-resources:
-  Resources:
-    CognitoUserPool:
-      Type: AWS::Cognito::UserPool
-      Properties:
-        UserPoolName: HabitTracker-UserPool-${self:provider.stage}
-        UsernameAttributes:
-          - email
-        Policies:
-          PasswordPolicy:
-            MinimumLength: 8
-            RequireUppercase: true
-            RequireLowercase: true
-            RequireNumbers: true
-            RequireSymbols: false
-        Schema:
-          - Name: name
-            AttributeDataType: String
-            Mutable: true
-            Required: false
-        LambdaConfig:
-          PreSignUp: !GetAtt AutoConfirmUserLambdaFunction.Arn
-
-    CognitoUserPoolClient:
-      Type: AWS::Cognito::UserPoolClient
-      Properties:
-        ClientName: HabitTracker-Client-${self:provider.stage}
-        UserPoolId: !Ref CognitoUserPool
-        GenerateSecret: false
-        ExplicitAuthFlows:
-          - ALLOW_USER_SRP_AUTH
-          - ALLOW_USER_PASSWORD_AUTH
-          - ALLOW_REFRESH_TOKEN_AUTH
-        PreventUserExistenceErrors: ENABLED
-
-    CognitoLambdaPermission:
-      Type: AWS::Lambda::Permission
-      Properties:
-        FunctionName: !GetAtt AutoConfirmUserLambdaFunction.Arn
-        Action: lambda:InvokeFunction
-        Principal: cognito-idp.amazonaws.com
-        SourceArn: !GetAtt CognitoUserPool.Arn
-
-    UsersTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: HabitTracker_Users
-        AttributeDefinitions:
-          - AttributeName: userId
-            AttributeType: S
-          - AttributeName: email
-            AttributeType: S
-        KeySchema:
-          - AttributeName: userId
-            KeyType: HASH
-        GlobalSecondaryIndexes:
-          - IndexName: email-index
-            KeySchema:
-              - AttributeName: email
-                KeyType: HASH
-            Projection:
-              ProjectionType: KEYS_ONLY
-        BillingMode: PAY_PER_REQUEST
-
-    TasksTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: HabitTracker_Tasks
-        AttributeDefinitions:
-          - AttributeName: userId
-            AttributeType: S
-          - AttributeName: taskId
-            AttributeType: S
-        KeySchema:
-          - AttributeName: userId
-            KeyType: HASH
-          - AttributeName: taskId
-            KeyType: RANGE
-        BillingMode: PAY_PER_REQUEST
-
-    HabitsTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: HabitTracker_Habits
-        AttributeDefinitions:
-          - AttributeName: userId
-            AttributeType: S
-          - AttributeName: habitId
-            AttributeType: S
-        KeySchema:
-          - AttributeName: userId
-            KeyType: HASH
-          - AttributeName: habitId
-            KeyType: RANGE
-        BillingMode: PAY_PER_REQUEST
-
-    HabitLogsTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: HabitTracker_Logs
-        AttributeDefinitions:
-          - AttributeName: habitId
-            AttributeType: S
-          - AttributeName: dateCompleted#logId
-            AttributeType: S
-          - AttributeName: userId
-            AttributeType: S
-          - AttributeName: dateCompleted
-            AttributeType: S
-        KeySchema:
-          - AttributeName: habitId
-            KeyType: HASH
-          - AttributeName: dateCompleted#logId
-            KeyType: RANGE
-        GlobalSecondaryIndexes:
-          - IndexName: userId-date-index
-            KeySchema:
-              - AttributeName: userId
-                KeyType: HASH
-              - AttributeName: dateCompleted
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
-        BillingMode: PAY_PER_REQUEST
-
-    AttachmentsBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: !Sub habit-tracker-attachments-${AWS::AccountId}-${self:provider.stage}
-        CorsConfiguration:
-          CorsRules:
-            - AllowedHeaders: ['*']
-              AllowedMethods: [GET, PUT, POST]
-              AllowedOrigins:
-                - !Sub http://${WebBucket}.s3-website-${AWS::Region}.amazonaws.com
-
-    WebBucket:
-      Type: AWS::S3::Bucket
-      Properties:
-        BucketName: !Sub habit-tracker-web-${AWS::AccountId}-${self:provider.stage}
-        WebsiteConfiguration:
-          IndexDocument: index.html
-          ErrorDocument: index.html
-        PublicAccessBlockConfiguration:
-          BlockPublicAcls: false
-          BlockPublicPolicy: false
-          IgnorePublicAcls: false
-          RestrictPublicBuckets: false
-
-    WebBucketPolicy:
-      Type: AWS::S3::BucketPolicy
-      Properties:
-        Bucket: !Ref WebBucket
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Principal: '*'
-              Action: s3:GetObject
-              Resource: !Sub arn:aws:s3:::${WebBucket}/*
-
-outputs:
-  ApiUrl:
-    Description: API Gateway URL
-    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
-  WebBucketUrl:
-    Description: S3 Website URL
-    Value: !Sub http://${WebBucket}.s3-website-${AWS::Region}.amazonaws.com
-  AttachmentsBucketName:
-    Description: S3 Attachments bucket name
-    Value: !Ref AttachmentsBucket
-  CognitoUserPoolId:
-    Description: Cognito User Pool ID
-    Value: !Ref CognitoUserPool
-  CognitoClientId:
-    Description: Cognito User Pool Client ID
-    Value: !Ref CognitoUserPoolClient
+    httpPort: 3000
+    noPrependStageInUrl: true 
